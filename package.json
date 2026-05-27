@@ -9,7 +9,10 @@
     "preview": "electron-vite preview",
     "dist:mac": "pnpm build && electron-builder --mac",
     "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json",
-    "prepare": "husky"
+    "prepare": "husky",
+    "release": "bash scripts/release.sh",
+    "release:minor": "bash scripts/release.sh minor",
+    "release:major": "bash scripts/release.sh major"
   },
   "keywords": [],
   "author": "tsnh",
