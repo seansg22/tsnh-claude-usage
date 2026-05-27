@@ -17,12 +17,6 @@
   "keywords": [],
   "author": "tsnh",
   "license": "MIT",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild"
-    ]
-  },
   "devDependencies": {
     "@types/node": "^20.17.0",
     "@types/react": "^18.3.12",
