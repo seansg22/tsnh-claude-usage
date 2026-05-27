@@ -15,12 +15,26 @@ if [[ -n $(git status --porcelain) ]]; then
   exit 1
 fi
 
-# Bump version, commit, and tag (npm version does all three)
+# Bump version, commit, and tag
 npm version "$BUMP" -m "chore: release v%s"
+VERSION=$(node -p "require('./package.json').version")
+
+echo ""
+echo "📦 Building v$VERSION..."
+pnpm dist:mac
 
 # Push commit + tag
 git push --follow-tags
 
+# Create GitHub release and upload artifacts
 echo ""
-echo "✅ Released! GitHub Actions is now building the DMG."
-echo "   https://github.com/seansg22/tsnh-claude-usage/actions"
+echo "🚀 Publishing to GitHub Releases..."
+gh release create "v$VERSION" \
+  --title "v$VERSION" \
+  --generate-notes \
+  release/**/*.dmg \
+  release/**/*.zip
+
+echo ""
+echo "✅ Done! Download at:"
+echo "   https://github.com/seansg22/tsnh-claude-usage/releases/tag/v$VERSION"
