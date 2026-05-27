@@ -12,12 +12,19 @@ interface ProjectTableProps {
   projects: ProjectSummary[]
   searchQuery?: string
   compact?: boolean
+  /** Controlled sort — when provided, sort state is managed externally (e.g. persisted store) */
+  sortField?: SortField
+  sortDir?: SortDir
+  onSort?: (field: SortField, dir: SortDir) => void
 }
 
-export function ProjectTable({ projects, searchQuery = '', compact = false }: ProjectTableProps) {
+export function ProjectTable({ projects, searchQuery = '', compact = false, sortField: controlledSortField, sortDir: controlledSortDir, onSort }: ProjectTableProps) {
   const navigate = useNavigate()
-  const [sortField, setSortField] = useState<SortField>('lastActive')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [localSortField, setLocalSortField] = useState<SortField>('lastActive')
+  const [localSortDir, setLocalSortDir] = useState<SortDir>('desc')
+
+  const sortField = controlledSortField ?? localSortField
+  const sortDir = controlledSortDir ?? localSortDir
 
   const filtered = useMemo(() => {
     if (!searchQuery) return projects
@@ -49,11 +56,12 @@ export function ProjectTable({ projects, searchQuery = '', compact = false }: Pr
   }, [filtered, sortField, sortDir])
 
   const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    const newDir = sortField === field ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc'
+    if (onSort) {
+      onSort(field, newDir)
     } else {
-      setSortField(field)
-      setSortDir('desc')
+      setLocalSortField(field)
+      setLocalSortDir(newDir)
     }
   }
 

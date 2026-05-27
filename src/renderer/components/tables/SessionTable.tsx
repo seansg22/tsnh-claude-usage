@@ -31,12 +31,24 @@ interface SessionTableProps {
   searchQuery?: string
   showProject?: boolean
   emptyMessage?: string
+  /** Controlled sort — when provided, sort state is managed externally (e.g. persisted store) */
+  sortField?: SortField
+  sortDir?: SortDir
+  onSort?: (field: SortField, dir: SortDir) => void
+  /**
+   * When true the `sessions` array is already sorted by the caller; the table
+   * renders it as-is (only header arrows are shown for the active column).
+   */
+  presorted?: boolean
 }
 
-export function SessionTable({ sessions, projectDirName, searchQuery = '', showProject = false, emptyMessage }: SessionTableProps) {
+export function SessionTable({ sessions, projectDirName, searchQuery = '', showProject = false, emptyMessage, sortField: controlledSortField, sortDir: controlledSortDir, onSort, presorted = false }: SessionTableProps) {
   const navigate = useNavigate()
-  const [sortField, setSortField] = useState<SortField>('lastActive')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [localSortField, setLocalSortField] = useState<SortField>('lastActive')
+  const [localSortDir, setLocalSortDir] = useState<SortDir>('desc')
+
+  const sortField = controlledSortField ?? localSortField
+  const sortDir = controlledSortDir ?? localSortDir
 
   const filtered = useMemo(() => {
     if (!searchQuery) return sessions
@@ -50,7 +62,10 @@ export function SessionTable({ sessions, projectDirName, searchQuery = '', showP
     )
   }, [sessions, searchQuery])
 
+  // When `presorted` is true the caller has already applied the global sort before
+  // paginating; skip the local sort so the page order isn't changed a second time.
   const sorted = useMemo(() => {
+    if (presorted) return filtered
     return [...filtered].sort((a, b) => {
       let cmp = 0
       switch (sortField) {
@@ -69,14 +84,15 @@ export function SessionTable({ sessions, projectDirName, searchQuery = '', showP
       }
       return sortDir === 'asc' ? cmp : -cmp
     })
-  }, [filtered, sortField, sortDir])
+  }, [filtered, sortField, sortDir, presorted])
 
   const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    const newDir = sortField === field ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc'
+    if (onSort) {
+      onSort(field, newDir)
     } else {
-      setSortField(field)
-      setSortDir('desc')
+      setLocalSortField(field)
+      setLocalSortDir(newDir)
     }
   }
 

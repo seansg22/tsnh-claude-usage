@@ -92,7 +92,9 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   },
 
   setSelectedMonth: async (month: string | null, baseDir: string) => {
-    set({ selectedMonth: month })
+    // Set selectedMonth and isLoading atomically so there is never a render where
+    // the filter shows the new month while summary still holds stale data.
+    set({ selectedMonth: month, isLoading: true })
     const dateRange = month
       ? { from: `${month}-01`, to: `${month}-31` }
       : undefined

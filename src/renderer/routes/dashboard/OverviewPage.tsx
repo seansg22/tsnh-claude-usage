@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react'
+import React, { useEffect, useRef, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
@@ -40,11 +40,17 @@ export function OverviewPage() {
   const { baseDir, billingCycleDay, monthlyBudget, pricingDiscount } = useSettingsStore()
   const navigate = useNavigate()
   const hasAutoSelected = useRef(false)
+  // Stays true from mount until the initial current-month filter fetch completes,
+  // keeping the loading overlay up across both the all-time and filtered fetches so
+  // the user never sees a flash of stale all-time data with the current-month filter.
+  const [isInitializing, setIsInitializing] = useState(!!baseDir)
 
   // Initial full fetch — populates availableMonths
   useEffect(() => {
     hasAutoSelected.current = false
+    setIsInitializing(!!baseDir)
     if (baseDir) fetchSummary(baseDir)
+    else setIsInitializing(false)
   }, [baseDir])
 
   // Auto-select current month once availableMonths is first populated
@@ -53,11 +59,21 @@ export function OverviewPage() {
       hasAutoSelected.current = true
       const currentMonth = format(new Date(), 'yyyy-MM')
       if (availableMonths.includes(currentMonth)) {
-        setSelectedMonth(currentMonth, baseDir)
+        setSelectedMonth(currentMonth, baseDir).then(() => setIsInitializing(false))
+      } else {
+        setIsInitializing(false)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableMonths])
+
+  // Fallback: first fetch done but no monthly data available — stop initializing
+  useEffect(() => {
+    if (!isLoading && summary !== null && availableMonths.length === 0 && !hasAutoSelected.current) {
+      setIsInitializing(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, summary])
 
   const { periodStart, resetDate, daysLeft } = useMemo(
     () => getBillingPeriod(billingCycleDay),
@@ -77,7 +93,7 @@ export function OverviewPage() {
     return periodCost * (1 - pricingDiscount / 100)
   }, [periodCost, pricingDiscount])
 
-  if (isLoading) {
+  if (isLoading || isInitializing) {
     return (
       <div className="flex h-full items-center justify-center">
         <LoadingOverlay progress={scanProgress} />

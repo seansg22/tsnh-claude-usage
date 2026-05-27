@@ -1,5 +1,5 @@
 import type { RawEntry } from '../types/jsonl'
-import type { SessionSummary, ProcessedMessage, TokenUsage, DailyCost } from '../types/domain'
+import type { SessionSummary, ProcessedMessage, TokenUsage, DailyCost, ImageAttachment } from '../types/domain'
 import {
   isAssistantEntry,
   isUserEntry,
@@ -332,12 +332,29 @@ export function buildProcessedMessages(entries: RawEntry[]): ProcessedMessage[] 
         }
       }
 
+      // Extract inline image attachments
+      let images: ImageAttachment[] | undefined
+      if (Array.isArray(rawContent)) {
+        const imgBlocks = rawContent.filter((b) => b.type === 'image')
+        if (imgBlocks.length > 0) {
+          images = imgBlocks.flatMap((b) => {
+            const src = (b as { type: 'image'; source: unknown }).source as Record<string, unknown>
+            if (src?.type === 'base64' && typeof src.data === 'string' && typeof src.media_type === 'string') {
+              return [{ mediaType: src.media_type, data: src.data }]
+            }
+            return []
+          })
+          if (images.length === 0) images = undefined
+        }
+      }
+
       messages.push({
         uuid: entry.uuid,
         parentUuid: entry.parentUuid,
         type: 'user',
         timestamp: entry.timestamp,
         content: text,
+        images,
         isMeta: entry.isMeta ?? false,
         isToolResult,
       })

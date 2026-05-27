@@ -44,11 +44,15 @@ function Breadcrumbs() {
 }
 
 export function DashboardLayout() {
-  const { isLoading, lastFetched, fetchSummary } = useAnalyticsStore()
+  const { isLoading, lastFetched, fetchSummary, selectedMonth } = useAnalyticsStore()
   const { baseDir } = useSettingsStore()
 
   const handleRefresh = () => {
-    if (baseDir) fetchSummary(baseDir, true)
+    if (!baseDir) return
+    const dateRange = selectedMonth
+      ? { from: `${selectedMonth}-01`, to: `${selectedMonth}-31` }
+      : undefined
+    fetchSummary(baseDir, true, dateRange)
   }
 
   return (

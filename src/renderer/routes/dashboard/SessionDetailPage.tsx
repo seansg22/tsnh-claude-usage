@@ -14,7 +14,7 @@ import { ErrorBanner } from '../../components/ui/ErrorBanner'
 import { formatCost, formatTokens } from '@shared/pricing/calculator'
 import { getModelDisplayName } from '@shared/pricing/models'
 import { formatDistanceToNow, format } from 'date-fns'
-import type { ProcessedMessage, TokenUsage } from '@shared/types/domain'
+import type { ProcessedMessage, TokenUsage, ImageAttachment } from '@shared/types/domain'
 import { clsx } from 'clsx'
 
 // ---------------------------------------------------------------------------
@@ -209,6 +209,7 @@ interface UserTurn {
   command: ParsedCommand | null
   /** Extracted text from <local-command-stdout> tags — renders left-aligned */
   stdout: string | null
+  images?: ImageAttachment[]
 }
 
 type Turn = UserTurn | AssistantTurn
@@ -217,6 +218,25 @@ type Turn = UserTurn | AssistantTurn
 function parseStdout(content: string): string | null {
   const m = content.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
   return m ? m[1].trim() : null
+}
+
+interface ParsedTaskNotification {
+  taskId: string
+  status: string
+  summary: string
+  result: string
+}
+
+function parseTaskNotification(content: string): ParsedTaskNotification | null {
+  if (!content.includes('<task-notification>')) return null
+  const get = (tag: string) =>
+    content.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`))?.[1]?.trim() ?? ''
+  return {
+    taskId: get('task-id'),
+    status: get('status'),
+    summary: get('summary'),
+    result: get('result'),
+  }
 }
 
 function groupMessages(messages: ProcessedMessage[]): Turn[] {
@@ -237,6 +257,7 @@ function groupMessages(messages: ProcessedMessage[]): Turn[] {
         content: msg.content,
         command: stdout !== null ? null : parseCommandContent(msg.content),
         stdout,
+        images: msg.images,
       })
       i++
       continue
@@ -306,6 +327,45 @@ function groupMessages(messages: ProcessedMessage[]): Turn[] {
 }
 
 // ---------------------------------------------------------------------------
+// Image lightbox
+// ---------------------------------------------------------------------------
+
+function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-[90vw] max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-[90vw] max-h-[90vh] rounded-xl border border-white/10 object-contain shadow-2xl"
+        />
+        <button
+          onClick={onClose}
+          className="absolute -top-3 -right-3 flex h-7 w-7 items-center justify-center rounded-full bg-claude-surface border border-claude-border text-claude-muted hover:text-claude-text transition-colors shadow-lg"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" d="M3 3l10 10M13 3L3 13" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Turn components
 // ---------------------------------------------------------------------------
 
@@ -332,35 +392,117 @@ function UserMessage({ turn }: { turn: UserTurn }) {
     )
   }
 
-  // Normal user message → right-aligned bubble
-  return (
-    <div className="flex justify-end">
-      <div className="max-w-[72%] ml-12 rounded-2xl px-4 py-3 bg-claude-orange/10 border border-claude-orange/20">
-        <div className="mb-1.5 flex items-center justify-between gap-4">
-          <span className="text-xs font-semibold text-claude-orange">You</span>
-          <span className="text-xs text-claude-muted/60">{format(new Date(turn.timestamp), 'HH:mm:ss')}</span>
-        </div>
-
-        {cmd ? (
-          <div className="space-y-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-claude-orange/20 px-2 py-0.5 text-xs font-mono font-semibold text-claude-orange ring-1 ring-claude-orange/30">
-              <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9q-.13 0-.25.031A2 2 0 0 1 7 10.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.717.82-1z"/>
-                <path d="M9.646 4.5H12a3 3 0 0 1 0 6H9a3 3 0 0 1-2.83-4h.893c.11.46.326.877.63 1.217A2 2 0 0 0 9 10.5h3a2 2 0 1 0 0-4h-1.535a4 4 0 0 0-.82-1z"/>
-              </svg>
-              {cmd.name || '/command'}
+  // Task notification → left-aligned system card
+  const taskNotif = parseTaskNotification(turn.content)
+  if (taskNotif) {
+    const isCompleted = taskNotif.status === 'completed'
+    const isFailed = taskNotif.status === 'failed'
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[75%] mr-12 rounded-xl border border-claude-border/40 bg-claude-surface/40 px-3 py-2.5 space-y-1">
+          <div className="flex items-center gap-2">
+            <svg className="h-3 w-3 flex-shrink-0 text-claude-muted/60" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <rect x="2" y="2" width="12" height="12" rx="2" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 8l2 2 4-4" />
+            </svg>
+            <span className="text-[10px] font-mono text-claude-muted/60">task-notification</span>
+            <span
+              className={clsx(
+                'text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded',
+                isCompleted && 'text-green-400 bg-green-400/10',
+                isFailed && 'text-red-400 bg-red-400/10',
+                !isCompleted && !isFailed && 'text-claude-muted bg-claude-border/20',
+              )}
+            >
+              {taskNotif.status}
             </span>
-            {cmd.args && (
-              <p className="text-sm text-claude-text leading-relaxed">{cmd.args}</p>
-            )}
+            <span className="ml-auto text-[10px] text-claude-muted/40">{format(new Date(turn.timestamp), 'HH:mm:ss')}</span>
           </div>
-        ) : (
-          <pre className="whitespace-pre-wrap break-words text-sm text-claude-text font-sans leading-relaxed">
-            {turn.content || <span className="italic text-claude-muted">Empty</span>}
-          </pre>
-        )}
+          {taskNotif.summary && (
+            <p className="text-xs text-claude-text/80 leading-relaxed pl-5">{taskNotif.summary}</p>
+          )}
+          {taskNotif.result && (
+            <p className="text-[11px] text-claude-muted font-mono pl-5 leading-relaxed">{taskNotif.result}</p>
+          )}
+        </div>
       </div>
-    </div>
+    )
+  }
+
+  // Normal user message → right-aligned bubble
+  const hasImages = (turn.images?.length ?? 0) > 0
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
+
+  return (
+    <>
+      {lightboxIdx !== null && turn.images && (
+        <ImageLightbox
+          src={`data:${turn.images[lightboxIdx].mediaType};base64,${turn.images[lightboxIdx].data}`}
+          alt={`Attachment ${lightboxIdx + 1}`}
+          onClose={() => setLightboxIdx(null)}
+        />
+      )}
+      <div className="flex justify-end">
+        <div className={clsx('ml-12 rounded-2xl px-4 py-3 bg-claude-orange/10 border border-claude-orange/20', hasImages ? 'max-w-[80%]' : 'max-w-[72%]')}>
+          <div className="mb-1.5 flex items-center justify-between gap-4">
+            <span className="text-xs font-semibold text-claude-orange">You</span>
+            <span className="text-xs text-claude-muted/60">{format(new Date(turn.timestamp), 'HH:mm:ss')}</span>
+          </div>
+
+          {cmd ? (
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-claude-orange/20 px-2 py-0.5 text-xs font-mono font-semibold text-claude-orange ring-1 ring-claude-orange/30">
+                <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H9q-.13 0-.25.031A2 2 0 0 1 7 10.5H4a2 2 0 1 1 0-4h1.535c.218-.376.495-.717.82-1z"/>
+                  <path d="M9.646 4.5H12a3 3 0 0 1 0 6H9a3 3 0 0 1-2.83-4h.893c.11.46.326.877.63 1.217A2 2 0 0 0 9 10.5h3a2 2 0 1 0 0-4h-1.535a4 4 0 0 0-.82-1z"/>
+                </svg>
+                {cmd.name || '/command'}
+              </span>
+              {cmd.args && (
+                <p className="text-sm text-claude-text leading-relaxed">{cmd.args}</p>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Strip "[Image #N]" placeholders so they don't double-display */}
+              {(() => {
+                const cleaned = turn.content.replace(/\[Image #\d+\]/g, '').trim()
+                return cleaned ? (
+                  <pre className="whitespace-pre-wrap break-words text-sm text-claude-text font-sans leading-relaxed">
+                    {cleaned}
+                  </pre>
+                ) : null
+              })()}
+              {/* Thumbnail grid — click to expand */}
+              {turn.images && turn.images.length > 0 && (
+                <div className={clsx('flex flex-wrap gap-2', turn.content.replace(/\[Image #\d+\]/g, '').trim() && 'mt-2')}>
+                  {turn.images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setLightboxIdx(idx)}
+                      className="group relative overflow-hidden rounded-lg border border-claude-orange/25 hover:border-claude-orange/50 transition-colors focus:outline-none focus:ring-2 focus:ring-claude-orange/40"
+                    >
+                      <img
+                        src={`data:${img.mediaType};base64,${img.data}`}
+                        alt={`Attachment ${idx + 1}`}
+                        className="block object-cover"
+                        style={{ width: '120px', height: '80px' }}
+                      />
+                      {/* Expand hint on hover */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                        <svg className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.5V13h3.5M13 6.5V3H9.5M9.5 9.5l3.5 3.5M6.5 6.5 3 3" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 

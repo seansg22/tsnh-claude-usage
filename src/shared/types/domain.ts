@@ -8,12 +8,19 @@ export interface TokenUsage {
   totalTokens: number
 }
 
+export interface ImageAttachment {
+  mediaType: string   // e.g. "image/png"
+  data: string        // base64-encoded
+}
+
 export interface ProcessedMessage {
   uuid: string
   parentUuid: string | null
   type: 'user' | 'assistant'
   timestamp: string
   content: string
+  /** Inline image attachments from the message content blocks */
+  images?: ImageAttachment[]
   /** Names of tool_use blocks when there is no text content */
   toolCalls?: string[]
   /** True for harness-injected meta messages (isMeta=true in JSONL) */

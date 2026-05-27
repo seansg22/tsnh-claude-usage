@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { usePageFiltersStore } from '../../stores/pageFiltersStore'
 import { ProjectTable } from '../../components/tables/ProjectTable'
 import { LoadingOverlay } from '../../components/ui/LoadingOverlay'
 import { ErrorBanner } from '../../components/ui/ErrorBanner'
@@ -9,7 +10,13 @@ import { SearchInput } from '../../components/ui/SearchInput'
 export function ProjectsPage() {
   const { summary, isLoading, error, scanProgress, fetchSummary, clearError } = useAnalyticsStore()
   const { baseDir } = useSettingsStore()
-  const [search, setSearch] = useState('')
+  const {
+    projectsSearch,
+    setProjectsSearch,
+    projectsSortField,
+    projectsSortDir,
+    setProjectsSort,
+  } = usePageFiltersStore()
 
   useEffect(() => {
     if (baseDir) fetchSummary(baseDir)
@@ -35,6 +42,7 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-claude-text">
           Projects
@@ -44,9 +52,13 @@ export function ProjectsPage() {
             </span>
           )}
         </h1>
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3">
         <SearchInput
-          value={search}
-          onChange={setSearch}
+          value={projectsSearch}
+          onChange={setProjectsSearch}
           placeholder="Search projects…"
           className="w-64"
         />
@@ -57,7 +69,13 @@ export function ProjectsPage() {
           No projects found.
         </div>
       ) : (
-        <ProjectTable projects={projects} searchQuery={search} />
+        <ProjectTable
+          projects={projects}
+          searchQuery={projectsSearch}
+          sortField={projectsSortField}
+          sortDir={projectsSortDir}
+          onSort={setProjectsSort}
+        />
       )}
     </div>
   )

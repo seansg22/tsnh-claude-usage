@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { usePageFiltersStore } from '../../stores/pageFiltersStore'
 import { SessionTable } from '../../components/tables/SessionTable'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { MonthFilter } from '../../components/ui/MonthFilter'
@@ -22,24 +23,26 @@ export function SessionsPage() {
     setSelectedMonth,
   } = useAnalyticsStore()
   const { baseDir } = useSettingsStore()
-
-  const [search, setSearch] = useState('')
-  const [projectFilter, setProjectFilter] = useState('')
-  const [page, setPage] = useState(0)
-
-  // Default to "All time" when landing on this page
-  useEffect(() => {
-    if (baseDir) setSelectedMonth(null, baseDir)
-  }, [])
+  const {
+    sessionsSearch: search,
+    setSessionsSearch: setSearch,
+    sessionsProjectFilter: projectFilter,
+    setSessionsProjectFilter: setProjectFilter,
+    sessionsPage: page,
+    setSessionsPage: setPage,
+    sessionsSortField,
+    sessionsSortDir,
+    setSessionsSort,
+  } = usePageFiltersStore()
 
   useEffect(() => {
     if (baseDir) fetchSummary(baseDir)
   }, [baseDir])
 
-  // Reset to page 0 whenever filters change
+  // Reset to page 0 whenever filters or sort order changes
   useEffect(() => {
     setPage(0)
-  }, [search, projectFilter, selectedMonth])
+  }, [search, projectFilter, selectedMonth, sessionsSortField, sessionsSortDir])
 
   const allSessions = useMemo(() => summary?.allSessions ?? [], [summary])
 
@@ -53,7 +56,7 @@ export function SessionsPage() {
     return Array.from(seen).sort((a, b) => a.localeCompare(b))
   }, [allSessions])
 
-  // Apply all filters here — project + text search — so SessionTable only sorts/renders
+  // Apply all filters here — project + text search
   const filtered = useMemo(() => {
     let result = allSessions
     if (projectFilter) {
@@ -72,10 +75,35 @@ export function SessionsPage() {
     return result
   }, [allSessions, projectFilter, search])
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  // Sort the full filtered list BEFORE slicing, so each page shows the globally correct
+  // portion of the sorted data (not an independent per-page sort).
+  const sortedFiltered = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let cmp = 0
+      switch (sessionsSortField) {
+        case 'lastActive':
+          cmp = a.lastActive.localeCompare(b.lastActive)
+          break
+        case 'cost':
+          cmp = a.estimatedCost - b.estimatedCost
+          break
+        case 'tokens':
+          cmp = a.usage.totalTokens - b.usage.totalTokens
+          break
+        case 'messages':
+          cmp = a.messageCount - b.messageCount
+          break
+      }
+      return sessionsSortDir === 'asc' ? cmp : -cmp
+    })
+  }, [filtered, sessionsSortField, sessionsSortDir])
+
+  const totalPages = Math.ceil(sortedFiltered.length / PAGE_SIZE)
+  // Clamp saved page to valid range in case data changed since last visit
+  const safePage = totalPages > 0 ? Math.min(page, totalPages - 1) : 0
   const paginated = useMemo(
-    () => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-    [filtered, page],
+    () => sortedFiltered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE),
+    [sortedFiltered, safePage],
   )
 
   if (isLoading) {
@@ -155,35 +183,39 @@ export function SessionsPage() {
         )}
       </div>
 
-      {/* Sessions table — key forces full remount on filter change so stale rows are cleared */}
+      {/* Sessions table — key forces full remount on filter/page change so stale rows are cleared */}
       <SessionTable
-        key={`${projectFilter}|${search}|${selectedMonth ?? 'all'}`}
+        key={`${projectFilter}|${search}|${selectedMonth ?? 'all'}|${safePage}`}
         sessions={paginated}
         showProject
         emptyMessage={search || projectFilter ? 'No sessions match your filters.' : 'No sessions found.'}
+        sortField={sessionsSortField}
+        sortDir={sessionsSortDir}
+        onSort={setSessionsSort}
+        presorted
       />
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-1">
           <p className="text-xs text-claude-muted">
-            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of{' '}
+            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of{' '}
             {filtered.length}
           </p>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setPage((p) => p - 1)}
-              disabled={page === 0}
+              onClick={() => setPage(safePage - 1)}
+              disabled={safePage === 0}
               className="rounded-lg border border-claude-border px-2.5 py-1 text-xs text-claude-muted hover:text-claude-text disabled:opacity-40 transition-colors"
             >
               Prev
             </button>
             <span className="text-xs text-claude-muted">
-              {page + 1} / {totalPages}
+              {safePage + 1} / {totalPages}
             </span>
             <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page >= totalPages - 1}
+              onClick={() => setPage(safePage + 1)}
+              disabled={safePage >= totalPages - 1}
               className="rounded-lg border border-claude-border px-2.5 py-1 text-xs text-claude-muted hover:text-claude-text disabled:opacity-40 transition-colors"
             >
               Next
