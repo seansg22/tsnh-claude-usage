@@ -20,6 +20,9 @@ npm version "$BUMP" -m "chore: release v%s"
 VERSION=$(node -p "require('./package.json').version")
 
 echo ""
+echo "🧹 Cleaning previous build artifacts..."
+rm -rf release/
+
 echo "📦 Building v$VERSION..."
 pnpm dist:mac
 

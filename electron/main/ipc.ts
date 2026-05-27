@@ -142,7 +142,7 @@ export function registerIpcHandlers(getDashboardWindow: () => BrowserWindow | nu
   // Focus / open dashboard window
   ipcMain.handle(IPC_CHANNELS.OPEN_DASHBOARD, async () => {
     const win = getDashboardWindow()
-    if (win) {
+    if (win && !win.isDestroyed()) {
       if (win.isMinimized()) win.restore()
       win.show()
       win.focus()

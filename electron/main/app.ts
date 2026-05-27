@@ -42,6 +42,28 @@ function getMenuBarWindow(): BrowserWindow | null {
   return menuBarWindow
 }
 
+// Show/hide the macOS Dock icon dynamically — visible only when the dashboard is open.
+// LSUIElement=true hides it by default; we call show/hide at runtime instead.
+function showDock(): void {
+  if (process.platform === 'darwin' && app.dock) app.dock.show()
+}
+
+function hideDock(): void {
+  if (process.platform === 'darwin' && app.dock) app.dock.hide()
+}
+
+function createAndTrackDashboardWindow(): BrowserWindow {
+  const win = createDashboardWindow()
+  showDock()
+
+  win.on('closed', () => {
+    dashboardWindow = null
+    hideDock()
+  })
+
+  return win
+}
+
 app.whenReady().then(() => {
   // Set dock icon (use PNG — works in both dev and prod)
   if (process.platform === 'darwin' && app.dock) {
@@ -58,8 +80,11 @@ app.whenReady().then(() => {
     }
   }
 
+  // Start hidden in the Dock — it appears when the dashboard window opens
+  hideDock()
+
   // Create windows
-  dashboardWindow = createDashboardWindow()
+  dashboardWindow = createAndTrackDashboardWindow()
   menuBarWindow = createMenuBarWindow()
 
   // Create tray
@@ -72,12 +97,13 @@ app.whenReady().then(() => {
   setupAutoUpdater()
 
   app.on('activate', () => {
-    // macOS: re-open window when clicking dock icon
-    if (dashboardWindow) {
+    // macOS: clicking dock icon while dashboard is open — just focus it
+    if (dashboardWindow && !dashboardWindow.isDestroyed()) {
       dashboardWindow.show()
       dashboardWindow.focus()
     } else {
-      dashboardWindow = createDashboardWindow()
+      // Dashboard was closed — re-create it (also shows dock via createAndTrackDashboardWindow)
+      dashboardWindow = createAndTrackDashboardWindow()
     }
   })
 })
@@ -89,13 +115,18 @@ app.on('window-all-closed', () => {
 
 // Clean up on quit
 app.on('before-quit', () => {
-  // Allow windows to actually close on quit
-  if (dashboardWindow) {
-    dashboardWindow.removeAllListeners('close')
+  // Remove ALL listeners (not just 'close') before closing.
+  // The menubar window has a 'blur' listener that calls win.hide(); if Electron
+  // fires blur during window destruction it throws "Object has been destroyed".
+  if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+    dashboardWindow.removeAllListeners()
     dashboardWindow.close()
   }
-  if (menuBarWindow) {
-    menuBarWindow.removeAllListeners('close')
+  dashboardWindow = null
+
+  if (menuBarWindow && !menuBarWindow.isDestroyed()) {
+    menuBarWindow.removeAllListeners()
     menuBarWindow.close()
   }
+  menuBarWindow = null
 })

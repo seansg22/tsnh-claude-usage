@@ -40,7 +40,7 @@ export function createTray(
 
   tray.on('click', (_event, bounds) => {
     const menuBarWin = getMenuBarWindow()
-    if (!menuBarWin) return
+    if (!menuBarWin || menuBarWin.isDestroyed()) return
 
     if (menuBarWin.isVisible()) {
       menuBarWin.hide()
@@ -55,7 +55,7 @@ export function createTray(
       label: 'Open Dashboard',
       click: () => {
         const dashWin = getDashboardWindow()
-        if (dashWin) {
+        if (dashWin && !dashWin.isDestroyed()) {
           if (dashWin.isMinimized()) dashWin.restore()
           dashWin.show()
           dashWin.focus()
