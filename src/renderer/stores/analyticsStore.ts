@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { AnalyticsSummary, ProjectSummary, ScanProgress } from '@shared/types/domain'
 
-const CACHE_TTL_MS = 60_000 // 1 minute
+const CACHE_TTL_MS = 55_000 // 55 seconds (ensures 1-minute poll always triggers a fresh fetch)
 
 interface AnalyticsState {
   summary: AnalyticsSummary | null

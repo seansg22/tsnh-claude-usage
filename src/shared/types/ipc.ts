@@ -17,6 +17,8 @@ export const IPC_CHANNELS = {
   OPEN_DASHBOARD: 'open-dashboard',
   SCAN_PROGRESS: 'scan-progress',
   GET_DEFAULT_DIR: 'get-default-dir',
+  SEND_BUDGET_NOTIFICATION: 'send-budget-notification',
+  SEND_DAILY_BUDGET_NOTIFICATION: 'send-daily-budget-notification',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
@@ -41,6 +43,8 @@ export interface IpcChannelMap {
   [IPC_CHANNELS.OPEN_DASHBOARD]: { req: void; res: void }
   [IPC_CHANNELS.SCAN_PROGRESS]: { req: void; res: ScanProgress }
   [IPC_CHANNELS.GET_DEFAULT_DIR]: { req: void; res: string }
+  [IPC_CHANNELS.SEND_BUDGET_NOTIFICATION]: { req: { threshold: number }; res: void }
+  [IPC_CHANNELS.SEND_DAILY_BUDGET_NOTIFICATION]: { req: { dailyBudget: number }; res: void }
 }
 
 // The API exposed by preload via contextBridge
@@ -58,6 +62,8 @@ export interface ClaudeAnalyticsAPI {
   getMenuBarData(baseDir: string, billingCycleDay: number): Promise<MenuBarData>
   openDashboard(): Promise<void>
   onProgress(callback: (progress: ScanProgress) => void): () => void
+  sendBudgetNotification(threshold: number): Promise<void>
+  sendDailyBudgetNotification(dailyBudget: number): Promise<void>
 }
 
 // Augment Window interface for renderer

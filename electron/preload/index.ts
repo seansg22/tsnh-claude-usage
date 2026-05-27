@@ -36,6 +36,14 @@ const api: ClaudeAnalyticsAPI = {
     return ipcRenderer.invoke(IPC_CHANNELS.OPEN_DASHBOARD)
   },
 
+  sendBudgetNotification(threshold: number) {
+    return ipcRenderer.invoke(IPC_CHANNELS.SEND_BUDGET_NOTIFICATION, { threshold })
+  },
+
+  sendDailyBudgetNotification(dailyBudget: number) {
+    return ipcRenderer.invoke(IPC_CHANNELS.SEND_DAILY_BUDGET_NOTIFICATION, { dailyBudget })
+  },
+
   onProgress(callback: (progress: ScanProgress) => void) {
     const handler = (_event: Electron.IpcRendererEvent, progress: ScanProgress) => {
       callback(progress)

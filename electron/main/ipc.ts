@@ -1,4 +1,5 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, Notification, nativeImage } from 'electron'
+import * as path from 'path'
 import { IPC_CHANNELS } from '../../src/shared/types/ipc'
 import type { ScanProgress } from '../../src/shared/types/domain'
 import {
@@ -146,6 +147,36 @@ export function registerIpcHandlers(getDashboardWindow: () => BrowserWindow | nu
       win.focus()
     }
   })
+
+  // Send a macOS notification when daily budget is exceeded
+  ipcMain.handle(
+    IPC_CHANNELS.SEND_DAILY_BUDGET_NOTIFICATION,
+    async (_event, { dailyBudget }: { dailyBudget: number }) => {
+      if (!Notification.isSupported()) return
+      const iconPath = path.join(__dirname, '../../resources/icon.png')
+      const icon = nativeImage.createFromPath(iconPath)
+      new Notification({
+        title: 'Daily Budget Exceeded',
+        body: `Today's Claude usage has exceeded your $${dailyBudget} daily budget.`,
+        icon: icon.isEmpty() ? undefined : icon,
+      }).show()
+    },
+  )
+
+  // Send a macOS notification for a monthly budget usage threshold
+  ipcMain.handle(
+    IPC_CHANNELS.SEND_BUDGET_NOTIFICATION,
+    async (_event, { threshold }: { threshold: number }) => {
+      if (!Notification.isSupported()) return
+      const iconPath = path.join(__dirname, '../../resources/icon.png')
+      const icon = nativeImage.createFromPath(iconPath)
+      new Notification({
+        title: 'Claude Usage Budget Alert',
+        body: `You've reached ${threshold}% of your monthly budget.`,
+        icon: icon.isEmpty() ? undefined : icon,
+      }).show()
+    },
+  )
 }
 
 // Input validation helpers

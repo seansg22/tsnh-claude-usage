@@ -7,15 +7,20 @@ import { ProjectDetailPage } from './routes/dashboard/ProjectDetailPage'
 import { SessionDetailPage } from './routes/dashboard/SessionDetailPage'
 import { SessionsPage } from './routes/dashboard/SessionsPage'
 import { SettingsPage } from './routes/dashboard/SettingsPage'
+import { NotificationsPage } from './routes/dashboard/NotificationsPage'
 import { MenuBarPage } from './routes/menubar/MenuBarPage'
 import { DirectorySetup } from './components/settings/DirectorySetup'
 import { useSettingsStore } from './stores/settingsStore'
 import { useAnalyticsStore } from './stores/analyticsStore'
+import { useBudgetNotifications } from './hooks/useBudgetNotifications'
 
 export default function App() {
   const { isConfigured, setBaseDir } = useSettingsStore()
   const { fetchSummary } = useAnalyticsStore()
   const [showSetup, setShowSetup] = useState(false)
+
+  // Background budget notification monitor — runs regardless of which page is open
+  useBudgetNotifications()
 
   // On first load, check if we need to show setup
   useEffect(() => {
@@ -48,6 +53,7 @@ export default function App() {
             element={<SessionDetailPage />}
           />
           <Route path="sessions" element={<SessionsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

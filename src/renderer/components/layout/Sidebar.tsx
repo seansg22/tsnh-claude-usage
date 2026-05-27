@@ -1,6 +1,10 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
+import { format } from 'date-fns'
+import { useAnalyticsStore } from '../../stores/analyticsStore'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { formatCost } from '@shared/pricing/calculator'
 
 interface NavItemProps {
   to: string
@@ -29,6 +33,126 @@ function NavItem({ to, label, icon, end }: NavItemProps) {
   )
 }
 
+function getBillingPeriod(cycleDay: number, now = new Date()) {
+  const day = now.getDate()
+  const periodStart =
+    day >= cycleDay
+      ? new Date(now.getFullYear(), now.getMonth(), cycleDay)
+      : new Date(now.getFullYear(), now.getMonth() - 1, cycleDay)
+  const resetDate = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, cycleDay)
+  const msLeft = resetDate.getTime() - now.getTime()
+  const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)))
+  return { periodStart, resetDate, daysLeft }
+}
+
+function BudgetWidget() {
+  const { billingCycleDay, monthlyBudget, pricingDiscount } = useSettingsStore()
+  const { summary } = useAnalyticsStore()
+
+  const { periodStart, resetDate, daysLeft } = useMemo(
+    () => getBillingPeriod(billingCycleDay),
+    [billingCycleDay],
+  )
+
+  const todayCost = useMemo(() => {
+    if (!summary) return 0
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
+    return summary.dailyCosts
+      .filter((d) => d.date === todayStr)
+      .reduce((sum, d) => sum + d.cost, 0)
+  }, [summary])
+
+  const periodCost = useMemo(() => {
+    if (!summary) return 0
+    const startStr = format(periodStart, 'yyyy-MM-dd')
+    return summary.dailyCosts
+      .filter((d) => d.date >= startStr)
+      .reduce((sum, d) => sum + d.cost, 0)
+  }, [summary, periodStart])
+
+  const effectiveCost = pricingDiscount > 0 ? periodCost * (1 - pricingDiscount / 100) : periodCost
+  const pct = monthlyBudget != null ? Math.min(100, (effectiveCost / monthlyBudget) * 100) : null
+  const barColor =
+    pct == null ? ''
+    : pct >= 90 ? 'bg-red-500'
+    : pct >= 75 ? 'bg-yellow-400'
+    : 'bg-green-500'
+
+  return (
+    <div className="mx-2 mb-3 rounded-xl border border-claude-border bg-claude-bg px-3.5 py-3 space-y-3">
+      {/* Today */}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">Today</p>
+        {pricingDiscount > 0 ? (
+          <div className="mt-1">
+            <p className="text-2xl font-bold text-green-400 leading-none">
+              {formatCost(todayCost * (1 - pricingDiscount / 100))}
+            </p>
+            <p className="mt-1 flex items-center gap-1.5">
+              <span className="text-xs line-through text-claude-muted">{formatCost(todayCost)}</span>
+              <span className="text-xs font-medium text-green-500/70">-{pricingDiscount}%</span>
+            </p>
+          </div>
+        ) : (
+          <p className="mt-1 text-2xl font-bold text-claude-orange leading-none">
+            {formatCost(todayCost)}
+          </p>
+        )}
+      </div>
+
+      <div className="h-px bg-claude-border" />
+
+      {/* This Period */}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">This Period</p>
+        {pricingDiscount > 0 ? (
+          <div className="mt-1">
+            <p className="text-xl font-bold text-green-400 leading-none">
+              {formatCost(effectiveCost)}
+            </p>
+            <p className="mt-1 flex items-center gap-1.5">
+              <span className="text-xs line-through text-claude-muted">{formatCost(periodCost)}</span>
+              <span className="text-xs font-medium text-green-500/70">-{pricingDiscount}%</span>
+            </p>
+          </div>
+        ) : (
+          <p className="mt-1 text-xl font-bold text-claude-text leading-none">
+            {formatCost(periodCost)}
+          </p>
+        )}
+      </div>
+
+      {/* Budget progress */}
+      {pct != null && (
+        <div className="space-y-1.5">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-claude-border">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-claude-muted">
+              of ${monthlyBudget!.toLocaleString()}
+            </span>
+            <span
+              className={`text-xs font-semibold ${pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400'}`}
+            >
+              {pct.toFixed(1)}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Reset date */}
+      <p className="text-xs text-claude-muted">
+        Resets {format(resetDate, 'MMM d')}
+        <span className="ml-1 text-claude-muted/60">· {daysLeft}d left</span>
+      </p>
+    </div>
+  )
+}
+
 export function Sidebar() {
   return (
     <aside className="flex h-full w-56 flex-shrink-0 flex-col border-r border-claude-border bg-claude-surface">
@@ -39,6 +163,9 @@ export function Sidebar() {
         </div>
         <span className="text-sm font-semibold text-claude-text">TSNH Claude Usage</span>
       </div>
+
+      {/* Budget widget */}
+      <BudgetWidget />
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 px-2 py-2">
@@ -70,20 +197,31 @@ export function Sidebar() {
             </svg>
           }
         />
-      </nav>
-
-      {/* Settings nav + footer */}
-      <div className="border-t border-claude-border px-2 py-2">
         <NavItem
-          to="/dashboard/settings"
-          label="Settings"
+          to="/dashboard/notifications"
+          label="Notifications"
           icon={
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           }
         />
+      </nav>
+
+      {/* Settings */}
+      <div className="border-t border-claude-border pt-2">
+        <div className="px-2 pb-2">
+          <NavItem
+            to="/dashboard/settings"
+            label="Settings"
+            icon={
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            }
+          />
+        </div>
       </div>
     </aside>
   )
