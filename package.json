@@ -1,0 +1,48 @@
+{
+  "name": "tsnh-claude-usage",
+  "version": "1.0.0",
+  "description": "Local-first desktop dashboard for Claude Code usage analytics",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "NODE_OPTIONS='' electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "dist:mac": "pnpm build && electron-builder --mac",
+    "typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json"
+  },
+  "keywords": [],
+  "author": "tsnh",
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "electron": "^32.2.7",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "mermaid": "^11.15.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.28.0",
+    "recharts": "^2.13.3",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.1"
+  }
+}
