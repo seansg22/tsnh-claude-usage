@@ -32,8 +32,8 @@ echo "🚀 Publishing to GitHub Releases..."
 gh release create "v$VERSION" \
   --title "v$VERSION" \
   --generate-notes \
-  release/**/*.dmg \
-  release/**/*.zip
+  release/*.dmg \
+  release/*.zip
 
 echo ""
 echo "✅ Done! Download at:"
