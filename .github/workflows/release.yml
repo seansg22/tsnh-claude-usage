@@ -24,7 +24,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --config.minimum-release-age=0
 
       - name: Build & publish
         run: pnpm dist:mac --publish always
