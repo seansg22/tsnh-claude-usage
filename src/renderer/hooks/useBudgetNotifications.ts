@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { format, startOfDay, isAfter } from 'date-fns'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useAnalyticsStore } from '../stores/analyticsStore'
+import { useCurrencyConverter } from './useCurrencyConverter'
 
 const THRESHOLDS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 const POLL_INTERVAL_MS = 60 * 1000 // 1 minute
@@ -22,11 +23,12 @@ function getBillingPeriodStart(cycleDay: number, now = new Date()): Date {
  *   notification for each uncrossed threshold, once per billing period.
  */
 export function useBudgetNotifications() {
-  const { baseDir, billingCycleDay, monthlyBudget, pricingDiscount,
+  const { baseDir, billingCycleDay, monthlyBudget,
           usageBudgetNotifications, notifiedThresholds, markThresholdNotified,
           dailyBudget, dailyBudgetNotifications, notifiedDailyBudget, markDailyBudgetNotified } =
     useSettingsStore()
   const { summary, fetchSummary } = useAnalyticsStore()
+  const { convertCost } = useCurrencyConverter()
 
   // Periodic re-fetch so the check runs in the background
   useEffect(() => {
@@ -39,17 +41,16 @@ export function useBudgetNotifications() {
   const periodStart = useMemo(() => getBillingPeriodStart(billingCycleDay), [billingCycleDay])
   const todayKey = format(new Date(), 'yyyy-MM-dd')
 
-  // Monthly budget percentage
+  // Monthly budget percentage (costs converted via currency setting)
   const pct = useMemo(() => {
     if (!summary || monthlyBudget == null) return null
     const startStr = format(periodStart, 'yyyy-MM-dd')
     const periodCost = summary.dailyCosts
       .filter((d) => d.date >= startStr)
       .reduce((sum, d) => sum + d.cost, 0)
-    const effectiveCost =
-      pricingDiscount > 0 ? periodCost * (1 - pricingDiscount / 100) : periodCost
+    const effectiveCost = convertCost(periodCost)
     return Math.min(100, (effectiveCost / monthlyBudget) * 100)
-  }, [summary, periodStart, monthlyBudget, pricingDiscount])
+  }, [summary, periodStart, monthlyBudget, convertCost])
 
   // Today's cost — session-level, matches buildMenuBarData logic
   const todayCost = useMemo(() => {
@@ -58,8 +59,8 @@ export function useBudgetNotifications() {
     const raw = summary.allSessions
       .filter((s) => isAfter(new Date(s.lastActive), todayStart))
       .reduce((sum, s) => sum + s.estimatedCost, 0)
-    return pricingDiscount > 0 ? raw * (1 - pricingDiscount / 100) : raw
-  }, [summary, pricingDiscount])
+    return convertCost(raw)
+  }, [summary, convertCost])
 
   // Check monthly budget thresholds whenever pct updates
   useEffect(() => {

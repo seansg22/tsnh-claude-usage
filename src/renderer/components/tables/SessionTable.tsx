@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SessionSummary } from '@shared/types/domain'
-import { formatCost, formatTokens } from '@shared/pricing/calculator'
+import { formatTokens } from '@shared/pricing/calculator'
 import { getModelDisplayName } from '@shared/pricing/models'
 import { formatDistanceToNow } from 'date-fns'
 import { CostBadge } from '../metrics/CostBadge'

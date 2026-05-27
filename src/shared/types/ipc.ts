@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   GET_DEFAULT_DIR: 'get-default-dir',
   SEND_BUDGET_NOTIFICATION: 'send-budget-notification',
   SEND_DAILY_BUDGET_NOTIFICATION: 'send-daily-budget-notification',
+  FETCH_EXCHANGE_RATES: 'fetch-exchange-rates',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
@@ -45,6 +46,7 @@ export interface IpcChannelMap {
   [IPC_CHANNELS.GET_DEFAULT_DIR]: { req: void; res: string }
   [IPC_CHANNELS.SEND_BUDGET_NOTIFICATION]: { req: { threshold: number }; res: void }
   [IPC_CHANNELS.SEND_DAILY_BUDGET_NOTIFICATION]: { req: { dailyBudget: number }; res: void }
+  [IPC_CHANNELS.FETCH_EXCHANGE_RATES]: { req: void; res: Record<string, number> }
 }
 
 // The API exposed by preload via contextBridge
@@ -64,6 +66,7 @@ export interface ClaudeAnalyticsAPI {
   onProgress(callback: (progress: ScanProgress) => void): () => void
   sendBudgetNotification(threshold: number): Promise<void>
   sendDailyBudgetNotification(dailyBudget: number): Promise<void>
+  fetchExchangeRates(): Promise<Record<string, number>>
 }
 
 // Augment Window interface for renderer

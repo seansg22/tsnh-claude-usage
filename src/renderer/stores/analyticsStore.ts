@@ -5,6 +5,8 @@ const CACHE_TTL_MS = 55_000 // 55 seconds (ensures 1-minute poll always triggers
 
 interface AnalyticsState {
   summary: AnalyticsSummary | null
+  /** Always holds the full unfiltered summary — never overwritten by a dateRange fetch. Used by the sidebar BudgetWidget. */
+  unfilteredSummary: AnalyticsSummary | null
   projects: ProjectSummary[]
   isLoading: boolean
   error: string | null
@@ -25,6 +27,7 @@ interface AnalyticsState {
 
 export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   summary: null,
+  unfilteredSummary: null,
   projects: [],
   isLoading: false,
   error: null,
@@ -69,7 +72,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
         error: null,
       }
 
-      // Only update available months when fetching unfiltered data
+      // Only update available months and unfilteredSummary when fetching unfiltered data
       if (!dateRange) {
         const months = Array.from(
           new Set(summary.dailyCosts.map((d) => d.date.slice(0, 7))),
@@ -77,6 +80,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
           .sort()
           .reverse() // newest first
         updates.availableMonths = months
+        updates.unfilteredSummary = summary
       }
 
       set(updates)
@@ -105,6 +109,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
     set({
       lastFetched: null,
       summary: null,
+      unfilteredSummary: null,
       projects: [],
       selectedMonth: null,
       availableMonths: [],

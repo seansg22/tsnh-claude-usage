@@ -1,6 +1,6 @@
 import React from 'react'
 import { clsx } from 'clsx'
-import { formatCost } from '@shared/pricing/calculator'
+import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 
 interface CostBadgeProps {
   cost: number
@@ -9,6 +9,8 @@ interface CostBadgeProps {
 }
 
 export function CostBadge({ cost, size = 'md', className }: CostBadgeProps) {
+  const { formatDisplayCost } = useCurrencyConverter()
+
   const sizeClasses = {
     sm: 'text-xs px-1.5 py-0.5',
     md: 'text-sm px-2 py-1',
@@ -24,7 +26,7 @@ export function CostBadge({ cost, size = 'md', className }: CostBadgeProps) {
         className,
       )}
     >
-      {formatCost(cost)}
+      {formatDisplayCost(cost)}
     </span>
   )
 }

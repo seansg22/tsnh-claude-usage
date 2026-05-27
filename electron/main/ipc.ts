@@ -1,5 +1,6 @@
 import { ipcMain, dialog, BrowserWindow, Notification, nativeImage } from 'electron'
 import * as path from 'path'
+import * as https from 'https'
 import { IPC_CHANNELS } from '../../src/shared/types/ipc'
 import type { ScanProgress } from '../../src/shared/types/domain'
 import {
@@ -177,6 +178,31 @@ export function registerIpcHandlers(getDashboardWindow: () => BrowserWindow | nu
       }).show()
     },
   )
+
+  // Fetch live exchange rates from Frankfurter API via the main process (Node.js https —
+  // avoids renderer-side CORS/fetch restrictions).
+  ipcMain.handle(IPC_CHANNELS.FETCH_EXCHANGE_RATES, async () => {
+    return new Promise<Record<string, number>>((resolve, reject) => {
+      https
+        .get('https://api.frankfurter.dev/v1/latest?from=USD', (res) => {
+          let body = ''
+          res.on('data', (chunk: Buffer) => { body += chunk.toString() })
+          res.on('end', () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              try {
+                const data = JSON.parse(body) as { rates: Record<string, number> }
+                resolve(data.rates)
+              } catch {
+                reject(new Error('Invalid JSON from exchange rate API'))
+              }
+            } else {
+              reject(new Error(`HTTP ${res.statusCode}`))
+            }
+          })
+        })
+        .on('error', (err) => reject(err))
+    })
+  })
 }
 
 // Input validation helpers

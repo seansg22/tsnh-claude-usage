@@ -6,8 +6,8 @@ interface SettingsState {
   isConfigured: boolean
   billingCycleDay: number
   monthlyBudget: number | null
-  /** Enterprise pricing discount percentage (0–100). 0 = no discount. */
-  pricingDiscount: number
+  /** Billing currency code (e.g. 'USD', 'SGD', 'EUR'). Used to convert displayed costs. */
+  currency: string
   /** Whether to send macOS notifications at budget usage thresholds (10%, 20%, …, 100%). */
   usageBudgetNotifications: boolean
   /** Tracks which thresholds have already been notified for the current billing period. */
@@ -23,7 +23,7 @@ interface SettingsState {
   setMonthlyBudget: (budget: number | null) => void
   setDailyBudget: (budget: number | null) => void
   setDailyBudgetNotifications: (enabled: boolean) => void
-  setPricingDiscount: (discount: number) => void
+  setCurrency: (currency: string) => void
   setUsageBudgetNotifications: (enabled: boolean) => void
   markThresholdNotified: (periodKey: string, threshold: number) => void
   markDailyBudgetNotified: (date: string) => void
@@ -37,7 +37,7 @@ export const useSettingsStore = create<SettingsState>()(
       isConfigured: false,
       billingCycleDay: 1,
       monthlyBudget: null,
-      pricingDiscount: 0,
+      currency: 'USD',
       usageBudgetNotifications: true,
       notifiedThresholds: null,
       dailyBudget: null,
@@ -64,8 +64,8 @@ export const useSettingsStore = create<SettingsState>()(
         set({ dailyBudgetNotifications: enabled })
       },
 
-      setPricingDiscount: (discount: number) => {
-        set({ pricingDiscount: Math.min(100, Math.max(0, discount)) })
+      setCurrency: (currency: string) => {
+        set({ currency })
       },
 
       setUsageBudgetNotifications: (enabled: boolean) => {
@@ -104,7 +104,7 @@ export const useSettingsStore = create<SettingsState>()(
         isConfigured: state.isConfigured,
         billingCycleDay: state.billingCycleDay,
         monthlyBudget: state.monthlyBudget,
-        pricingDiscount: state.pricingDiscount,
+        currency: state.currency,
         usageBudgetNotifications: state.usageBudgetNotifications,
         notifiedThresholds: state.notifiedThresholds,
         dailyBudget: state.dailyBudget,

@@ -1,14 +1,34 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import type { MenuBarData } from '@shared/types/domain'
-import { formatCost, formatTokens } from '@shared/pricing/calculator'
+import { formatTokens } from '@shared/pricing/calculator'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { useCurrencyStore } from '../../stores/currencyStore'
+import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 import { formatDistanceToNow, format } from 'date-fns'
 import { Spinner } from '../../components/ui/LoadingOverlay'
 
 const AUTO_REFRESH_MS = 2_000
 
 export function MenuBarPage() {
-  const { baseDir, billingCycleDay, monthlyBudget, pricingDiscount } = useSettingsStore()
+  const { baseDir, billingCycleDay, monthlyBudget } = useSettingsStore()
+  const { convertCost, formatDisplayCost } = useCurrencyConverter()
+  const { fetchRates } = useCurrencyStore()
+
+  // Sync settings from dashboard window (separate BrowserWindow shares localStorage).
+  // On mount: rehydrate to pick up any currency set before the menubar opened.
+  // On storage event: rehydrate immediately when dashboard writes new settings.
+  useEffect(() => {
+    useSettingsStore.persist.rehydrate()
+    fetchRates()
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'claude-usage-settings') {
+        useSettingsStore.persist.rehydrate()
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
   const [data, setData] = useState<MenuBarData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isManualLoading, setIsManualLoading] = useState(false)
@@ -107,10 +127,7 @@ export function MenuBarPage() {
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {/* This Period */}
           {(() => {
-            const discountedPeriodCost = pricingDiscount > 0
-              ? data.currentPeriodCost * (1 - pricingDiscount / 100)
-              : null
-            const effectiveCost = discountedPeriodCost ?? data.currentPeriodCost
+            const effectiveCost = convertCost(data.currentPeriodCost)
             const pct = monthlyBudget != null
               ? Math.min(100, (effectiveCost / monthlyBudget) * 100)
               : null
@@ -128,23 +145,9 @@ export function MenuBarPage() {
                 </p>
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    {discountedPeriodCost != null ? (
-                      <>
-                        <span className="text-2xl font-bold text-green-400">
-                          {formatCost(discountedPeriodCost)}
-                        </span>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-xs line-through text-white/30">
-                            {formatCost(data.currentPeriodCost)}
-                          </span>
-                          <span className="text-[10px] font-medium text-green-500/70">-{pricingDiscount}%</span>
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-2xl font-bold text-claude-orange">
-                        {formatCost(data.currentPeriodCost)}
-                      </span>
-                    )}
+                    <span className="text-2xl font-bold text-claude-orange">
+                      {formatDisplayCost(data.currentPeriodCost)}
+                    </span>
                   </div>
                   <span className="text-xs text-white/50 mt-1">
                     Resets {format(resetDate, 'MMM d')} · {data.periodDaysLeft}d left
@@ -159,8 +162,7 @@ export function MenuBarPage() {
                       />
                     </div>
                     <p className="text-[10px] text-white/40">
-                      {formatCost(effectiveCost)} of ${monthlyBudget!.toLocaleString()} · {pct.toFixed(1)}%
-                      {discountedPeriodCost != null && <span className="ml-1 text-white/30">(after discount)</span>}
+                      {formatDisplayCost(data.currentPeriodCost)} of ${monthlyBudget!.toLocaleString()} · {pct.toFixed(1)}%
                     </p>
                   </div>
                 ) : (
@@ -177,21 +179,9 @@ export function MenuBarPage() {
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/40">Today</p>
             <div className="flex items-start justify-between">
               <div>
-                {pricingDiscount > 0 ? (
-                  <>
-                    <span className="text-2xl font-bold text-green-400">
-                      {formatCost(data.todayCost * (1 - pricingDiscount / 100))}
-                    </span>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-xs line-through text-white/30">{formatCost(data.todayCost)}</span>
-                      <span className="text-[10px] font-medium text-green-500/70">-{pricingDiscount}%</span>
-                    </div>
-                  </>
-                ) : (
-                  <span className="text-2xl font-bold text-claude-orange">
-                    {formatCost(data.todayCost)}
-                  </span>
-                )}
+                <span className="text-2xl font-bold text-claude-orange">
+                  {formatDisplayCost(data.todayCost)}
+                </span>
               </div>
               <span className="text-sm text-white/60 mt-1">
                 {formatTokens(data.todayTokens)} tokens
@@ -207,9 +197,6 @@ export function MenuBarPage() {
               </p>
               <div className="space-y-2">
                 {data.todayByProject.map((proj) => {
-                  const effectiveCost = pricingDiscount > 0
-                    ? proj.cost * (1 - pricingDiscount / 100)
-                    : proj.cost
                   const pct = data.todayCost > 0
                     ? (proj.cost / data.todayCost) * 100
                     : 0
@@ -220,20 +207,9 @@ export function MenuBarPage() {
                           {proj.projectName}
                         </span>
                         <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                          {pricingDiscount > 0 ? (
-                            <>
-                              <span className="text-xs font-medium text-green-400">
-                                {formatCost(effectiveCost)}
-                              </span>
-                              <span className="text-[10px] line-through text-white/30">
-                                {formatCost(proj.cost)}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-xs font-medium text-white">
-                              {formatCost(proj.cost)}
-                            </span>
-                          )}
+                          <span className="text-xs font-medium text-white">
+                            {formatDisplayCost(proj.cost)}
+                          </span>
                           <span className="text-[10px] text-white/30 w-8 text-right">
                             {pct.toFixed(0)}%
                           </span>

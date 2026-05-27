@@ -12,15 +12,22 @@ import { MenuBarPage } from './routes/menubar/MenuBarPage'
 import { DirectorySetup } from './components/settings/DirectorySetup'
 import { useSettingsStore } from './stores/settingsStore'
 import { useAnalyticsStore } from './stores/analyticsStore'
+import { useCurrencyStore } from './stores/currencyStore'
 import { useBudgetNotifications } from './hooks/useBudgetNotifications'
 
 export default function App() {
   const { isConfigured, setBaseDir } = useSettingsStore()
   const { fetchSummary } = useAnalyticsStore()
+  const { fetchRates } = useCurrencyStore()
   const [showSetup, setShowSetup] = useState(false)
 
   // Background budget notification monitor — runs regardless of which page is open
   useBudgetNotifications()
+
+  // Fetch live exchange rates once on startup
+  useEffect(() => {
+    fetchRates()
+  }, [])
 
   // On first load, check if we need to show setup
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
 import { formatCost } from '@shared/pricing/calculator'
+import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 
 const THRESHOLDS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
@@ -22,13 +23,13 @@ export function NotificationsPage() {
     dailyBudgetNotifications,
     setDailyBudgetNotifications,
     billingCycleDay,
-    pricingDiscount,
     usageBudgetNotifications,
     setUsageBudgetNotifications,
     notifiedThresholds,
     notifiedDailyBudget,
   } = useSettingsStore()
   const { summary } = useAnalyticsStore()
+  const { convertCost } = useCurrencyConverter()
   const navigate = useNavigate()
 
   const [dailyBudgetInput, setDailyBudgetInput] = useState(dailyBudget != null ? String(dailyBudget) : '')
@@ -41,7 +42,7 @@ export function NotificationsPage() {
   const periodStart = useMemo(() => getBillingPeriodStart(billingCycleDay), [billingCycleDay])
   const todayKey = format(new Date(), 'yyyy-MM-dd')
 
-  const periodCost = useMemo(() => {
+  const rawPeriodCost = useMemo(() => {
     if (!summary) return 0
     const startStr = format(periodStart, 'yyyy-MM-dd')
     return summary.dailyCosts
@@ -49,16 +50,17 @@ export function NotificationsPage() {
       .reduce((sum, d) => sum + d.cost, 0)
   }, [summary, periodStart])
 
-  const todayCost = useMemo(() => {
+  const rawTodayCost = useMemo(() => {
     if (!summary) return 0
     const todayStart = startOfDay(new Date())
-    const raw = summary.allSessions
+    return summary.allSessions
       .filter((s) => isAfter(new Date(s.lastActive), todayStart))
       .reduce((sum, s) => sum + s.estimatedCost, 0)
-    return pricingDiscount > 0 ? raw * (1 - pricingDiscount / 100) : raw
-  }, [summary, pricingDiscount])
+  }, [summary])
 
-  const effectivePeriodCost = pricingDiscount > 0 ? periodCost * (1 - pricingDiscount / 100) : periodCost
+  // Converted to USD equivalent for budget comparisons and display
+  const effectivePeriodCost = convertCost(rawPeriodCost)
+  const todayCost = convertCost(rawTodayCost)
   const pct = monthlyBudget != null ? Math.min(100, (effectivePeriodCost / monthlyBudget) * 100) : null
 
   const periodKey = format(periodStart, 'yyyy-MM-dd')
@@ -66,6 +68,7 @@ export function NotificationsPage() {
   const dailyFiredToday = notifiedDailyBudget === todayKey
 
   return (
+    <div className="flex-1 overflow-y-auto p-5">
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
       <div>
@@ -225,7 +228,7 @@ export function NotificationsPage() {
               />
             </div>
             <div className="flex items-center justify-between border-t border-claude-border pt-3 text-xs text-claude-muted">
-              <span>${todayCost.toFixed(4)} of ${dailyBudget.toLocaleString()} today</span>
+              <span>{formatCost(todayCost)} of ${dailyBudget.toLocaleString()} today</span>
               <span className={`font-semibold flex items-center gap-1 ${
                 dailyFiredToday ? 'text-red-400' : todayCost >= dailyBudget ? 'text-red-400' : 'text-green-400'
               }`}>
@@ -255,6 +258,7 @@ export function NotificationsPage() {
           </button>
         </div>
       </section>
+    </div>
     </div>
   )
 }

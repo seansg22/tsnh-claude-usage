@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { formatCost } from '@shared/pricing/calculator'
+import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 
 interface NavItemProps {
   to: string
@@ -46,32 +47,36 @@ function getBillingPeriod(cycleDay: number, now = new Date()) {
 }
 
 function BudgetWidget() {
-  const { billingCycleDay, monthlyBudget, pricingDiscount } = useSettingsStore()
-  const { summary } = useAnalyticsStore()
+  const { billingCycleDay, monthlyBudget } = useSettingsStore()
+  // Use unfilteredSummary so the sidebar always reflects the actual current period,
+  // regardless of whatever month filter is active on the Overview page.
+  const { unfilteredSummary } = useAnalyticsStore()
+  const { convertCost } = useCurrencyConverter()
 
   const { periodStart, resetDate, daysLeft } = useMemo(
     () => getBillingPeriod(billingCycleDay),
     [billingCycleDay],
   )
 
-  const todayCost = useMemo(() => {
-    if (!summary) return 0
+  const rawTodayCost = useMemo(() => {
+    if (!unfilteredSummary) return 0
     const todayStr = format(new Date(), 'yyyy-MM-dd')
-    return summary.dailyCosts
+    return unfilteredSummary.dailyCosts
       .filter((d) => d.date === todayStr)
       .reduce((sum, d) => sum + d.cost, 0)
-  }, [summary])
+  }, [unfilteredSummary])
 
-  const periodCost = useMemo(() => {
-    if (!summary) return 0
+  const rawPeriodCost = useMemo(() => {
+    if (!unfilteredSummary) return 0
     const startStr = format(periodStart, 'yyyy-MM-dd')
-    return summary.dailyCosts
+    return unfilteredSummary.dailyCosts
       .filter((d) => d.date >= startStr)
       .reduce((sum, d) => sum + d.cost, 0)
-  }, [summary, periodStart])
+  }, [unfilteredSummary, periodStart])
 
-  const effectiveCost = pricingDiscount > 0 ? periodCost * (1 - pricingDiscount / 100) : periodCost
-  const pct = monthlyBudget != null ? Math.min(100, (effectiveCost / monthlyBudget) * 100) : null
+  const effectiveTodayCost = convertCost(rawTodayCost)
+  const effectivePeriodCost = convertCost(rawPeriodCost)
+  const pct = monthlyBudget != null ? Math.min(100, (effectivePeriodCost / monthlyBudget) * 100) : null
   const barColor =
     pct == null ? ''
     : pct >= 90 ? 'bg-red-500'
@@ -80,46 +85,12 @@ function BudgetWidget() {
 
   return (
     <div className="mx-2 mb-3 rounded-xl border border-claude-border bg-claude-bg px-3.5 py-3 space-y-3">
-      {/* Today */}
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">Today</p>
-        {pricingDiscount > 0 ? (
-          <div className="mt-1">
-            <p className="text-2xl font-bold text-green-400 leading-none">
-              {formatCost(todayCost * (1 - pricingDiscount / 100))}
-            </p>
-            <p className="mt-1 flex items-center gap-1.5">
-              <span className="text-xs line-through text-claude-muted">{formatCost(todayCost)}</span>
-              <span className="text-xs font-medium text-green-500/70">-{pricingDiscount}%</span>
-            </p>
-          </div>
-        ) : (
-          <p className="mt-1 text-2xl font-bold text-claude-orange leading-none">
-            {formatCost(todayCost)}
-          </p>
-        )}
-      </div>
-
-      <div className="h-px bg-claude-border" />
-
       {/* This Period */}
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">This Period</p>
-        {pricingDiscount > 0 ? (
-          <div className="mt-1">
-            <p className="text-xl font-bold text-green-400 leading-none">
-              {formatCost(effectiveCost)}
-            </p>
-            <p className="mt-1 flex items-center gap-1.5">
-              <span className="text-xs line-through text-claude-muted">{formatCost(periodCost)}</span>
-              <span className="text-xs font-medium text-green-500/70">-{pricingDiscount}%</span>
-            </p>
-          </div>
-        ) : (
-          <p className="mt-1 text-xl font-bold text-claude-text leading-none">
-            {formatCost(periodCost)}
-          </p>
-        )}
+        <p className="mt-1 text-2xl font-bold text-claude-orange leading-none">
+          {formatCost(effectivePeriodCost)}
+        </p>
       </div>
 
       {/* Budget progress */}
@@ -149,6 +120,16 @@ function BudgetWidget() {
         Resets {format(resetDate, 'MMM d')}
         <span className="ml-1 text-claude-muted/60">· {daysLeft}d left</span>
       </p>
+
+      <div className="h-px bg-claude-border" />
+
+      {/* Today */}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">Today</p>
+        <p className="mt-1 text-xl font-bold text-claude-text leading-none">
+          {formatCost(effectiveTodayCost)}
+        </p>
+      </div>
     </div>
   )
 }

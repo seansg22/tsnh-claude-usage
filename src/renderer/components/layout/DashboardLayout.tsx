@@ -6,6 +6,15 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { Spinner } from '../ui/LoadingOverlay'
 import { formatDistanceToNow } from 'date-fns'
 
+/** Shorten a UUID-like segment to "xxxx…xxxx" to save header space. */
+function shortenSegment(s: string) {
+  // UUID pattern: 8-4-4-4-12
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) {
+    return s.slice(0, 8) + '…'
+  }
+  return s
+}
+
 function Breadcrumbs() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -14,26 +23,36 @@ function Breadcrumbs() {
   if (parts.length === 0) return <span className="text-sm text-claude-muted">Overview</span>
 
   return (
-    <nav className="flex items-center gap-1.5 text-sm">
-      <button onClick={() => navigate('/dashboard')} className="text-claude-muted hover:text-claude-text transition-colors">
+    <nav className="flex min-w-0 items-center gap-1 text-sm">
+      <button
+        onClick={() => navigate('/dashboard')}
+        className="flex-shrink-0 text-claude-muted hover:text-claude-text transition-colors"
+      >
         Overview
       </button>
       {parts.map((part, i) => {
         const decoded = decodeURIComponent(part)
+        const display = shortenSegment(decoded)
         const isLast = i === parts.length - 1
         return (
           <React.Fragment key={i}>
-            <span className="text-claude-border">/</span>
+            <span className="flex-shrink-0 text-claude-border">/</span>
             {isLast ? (
-              <span className="text-claude-text max-w-xs truncate" title={decoded}>
-                {decoded}
+              <span
+                className="min-w-0 truncate text-claude-text"
+                style={{ maxWidth: 'min(12rem, 30vw)' }}
+                title={decoded}
+              >
+                {display}
               </span>
             ) : (
               <button
                 onClick={() => navigate('/dashboard/' + parts.slice(0, i + 1).map(encodeURIComponent).join('/'))}
-                className="text-claude-muted hover:text-claude-text transition-colors max-w-xs truncate"
+                className="min-w-0 truncate text-claude-muted hover:text-claude-text transition-colors"
+                style={{ maxWidth: 'min(12rem, 20vw)' }}
+                title={decoded}
               >
-                {decoded}
+                {display}
               </button>
             )}
           </React.Fragment>
@@ -64,13 +83,13 @@ export function DashboardLayout() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header className={`app-drag flex h-12 flex-shrink-0 items-center justify-between border-b border-claude-border bg-claude-surface ${hideSidebar ? 'pl-20 pr-4' : 'px-4'}`}>
-          <div className="app-no-drag">
+          <div className="app-no-drag min-w-0 flex-1 overflow-hidden">
             <Breadcrumbs />
           </div>
-          <div className="app-no-drag flex items-center gap-3">
+          <div className="app-no-drag flex flex-shrink-0 items-center gap-3">
             {lastFetched && (
-              <span className="text-xs text-claude-muted">
-                Updated {formatDistanceToNow(new Date(lastFetched), { addSuffix: true })}
+              <span className="hidden text-xs text-claude-muted sm:block" title={`Updated ${formatDistanceToNow(new Date(lastFetched), { addSuffix: true })}`}>
+                {formatDistanceToNow(new Date(lastFetched), { addSuffix: true })}
               </span>
             )}
             <button
@@ -89,7 +108,7 @@ export function DashboardLayout() {
         </header>
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto bg-claude-bg p-5">
+        <main className="flex-1 overflow-hidden bg-claude-bg flex flex-col">
           <Outlet />
         </main>
       </div>

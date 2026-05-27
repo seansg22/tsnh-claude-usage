@@ -1,7 +1,21 @@
 import React, { useState } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
+import { useCurrencyStore } from '../../stores/currencyStore'
 import { useNavigate } from 'react-router-dom'
+
+const SUPPORTED_CURRENCIES = [
+  { code: 'USD', label: 'USD – US Dollar' },
+  { code: 'SGD', label: 'SGD – Singapore Dollar' },
+  { code: 'EUR', label: 'EUR – Euro' },
+  { code: 'GBP', label: 'GBP – British Pound' },
+  { code: 'AUD', label: 'AUD – Australian Dollar' },
+  { code: 'JPY', label: 'JPY – Japanese Yen' },
+  { code: 'MYR', label: 'MYR – Malaysian Ringgit' },
+  { code: 'THB', label: 'THB – Thai Baht' },
+  { code: 'IDR', label: 'IDR – Indonesian Rupiah' },
+  { code: 'PHP', label: 'PHP – Philippine Peso' },
+]
 
 interface FieldRowProps {
   label: string
@@ -29,15 +43,15 @@ export function SettingsPage() {
     setBillingCycleDay,
     monthlyBudget,
     setMonthlyBudget,
-    pricingDiscount,
-    setPricingDiscount,
+    currency,
+    setCurrency,
   } = useSettingsStore()
   const { invalidate } = useAnalyticsStore()
+  const { rates, rateLoading, rateError } = useCurrencyStore()
   const navigate = useNavigate()
 
   const [cycleInput, setCycleInput] = useState(String(billingCycleDay))
   const [budgetInput, setBudgetInput] = useState(monthlyBudget != null ? String(monthlyBudget) : '')
-  const [discountInput, setDiscountInput] = useState(pricingDiscount > 0 ? String(pricingDiscount) : '')
 
   const commitCycleDay = () => {
     const val = parseInt(cycleInput, 10)
@@ -49,11 +63,6 @@ export function SettingsPage() {
     setMonthlyBudget(!isNaN(val) && val > 0 ? val : null)
   }
 
-  const commitDiscount = () => {
-    const val = parseFloat(discountInput)
-    setPricingDiscount(!isNaN(val) && val > 0 ? val : 0)
-  }
-
   const handleChangeDir = async () => {
     const dir = await window.claudeAnalytics.selectDirectory()
     if (dir) {
@@ -63,7 +72,17 @@ export function SettingsPage() {
     }
   }
 
+  const currentRate = currency === 'USD' ? 1 : (rates[currency] ?? null)
+  const rateLabel = rateLoading
+    ? 'Fetching rate…'
+    : rateError
+      ? 'Rate unavailable'
+      : currentRate != null && currency !== 'USD'
+        ? `1 USD = ${currentRate.toFixed(4)} ${currency}`
+        : null
+
   return (
+    <div className="flex-1 overflow-y-auto p-5">
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-claude-text">Settings</h1>
@@ -111,23 +130,22 @@ export function SettingsPage() {
         </FieldRow>
 
         <FieldRow
-          label="Enterprise Discount"
-          description="Your negotiated pricing discount percentage (0–100). Applied to all displayed costs."
+          label="Billing Currency"
+          description="Your Anthropic billing currency. Costs are converted to USD equivalent for display."
         >
-          <div className="flex items-center gap-1 rounded-lg border border-claude-border bg-claude-bg px-3 py-1.5 focus-within:ring-1 focus-within:ring-claude-orange/50">
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              value={discountInput}
-              placeholder="0"
-              onChange={(e) => setDiscountInput(e.target.value)}
-              onBlur={commitDiscount}
-              onKeyDown={(e) => e.key === 'Enter' && commitDiscount()}
-              className="w-16 bg-transparent text-sm text-claude-text text-right focus:outline-none"
-            />
-            <span className="text-sm text-claude-muted">%</span>
+          <div className="flex flex-col items-end gap-1">
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="rounded-lg border border-claude-border bg-claude-bg px-3 py-1.5 text-sm text-claude-text focus:outline-none focus:ring-1 focus:ring-claude-orange/50"
+            >
+              {SUPPORTED_CURRENCIES.map(({ code, label }) => (
+                <option key={code} value={code}>{label}</option>
+              ))}
+            </select>
+            {rateLabel && (
+              <span className="text-xs text-claude-muted">{rateLabel}</span>
+            )}
           </div>
         </FieldRow>
       </section>
@@ -153,6 +171,7 @@ export function SettingsPage() {
           </div>
         </FieldRow>
       </section>
+    </div>
     </div>
   )
 }

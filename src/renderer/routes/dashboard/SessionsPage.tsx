@@ -123,7 +123,7 @@ export function SessionsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex-1 overflow-y-auto p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-claude-text">

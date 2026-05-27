@@ -9,7 +9,8 @@ import { ProjectTable } from '../../components/tables/ProjectTable'
 import { LoadingOverlay } from '../../components/ui/LoadingOverlay'
 import { ErrorBanner } from '../../components/ui/ErrorBanner'
 import { MonthFilter } from '../../components/ui/MonthFilter'
-import { formatCost, formatTokens } from '@shared/pricing/calculator'
+import { formatTokens } from '@shared/pricing/calculator'
+import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 
 export function OverviewPage() {
   const {
@@ -23,7 +24,8 @@ export function OverviewPage() {
     selectedMonth,
     setSelectedMonth,
   } = useAnalyticsStore()
-  const { baseDir, pricingDiscount } = useSettingsStore()
+  const { baseDir } = useSettingsStore()
+  const { convertCost, formatDisplayCost, rate } = useCurrencyConverter()
   const hasAutoSelected = useRef(false)
   // Stays true from mount until the initial current-month filter fetch completes,
   // keeping the loading overlay up across both the all-time and filtered fetches so
@@ -60,6 +62,13 @@ export function OverviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, summary])
 
+  // Convert daily cost data for chart display — invalidate when rate changes
+  const convertedDailyCosts = useMemo(
+    () => summary?.dailyCosts.map((d) => ({ ...d, cost: convertCost(d.cost) })) ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [summary?.dailyCosts, rate],
+  )
+
   if (isLoading || isInitializing) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -85,7 +94,7 @@ export function OverviewPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="flex-1 overflow-y-auto p-5 space-y-5">
       {/* Month Filter */}
       {availableMonths.length > 1 && (
         <div className="flex items-center">
@@ -99,25 +108,11 @@ export function OverviewPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {pricingDiscount > 0 ? (
-          <StatCard
-            label="Total Cost"
-            value={formatCost(summary.totalCost * (1 - pricingDiscount / 100))}
-            accentGreen
-            sub={
-              <span className="flex items-center gap-1.5">
-                <span className="line-through">{formatCost(summary.totalCost)}</span>
-                <span className="text-green-500/70">-{pricingDiscount}%</span>
-              </span>
-            }
-          />
-        ) : (
-          <StatCard
-            label="Total Cost"
-            value={formatCost(summary.totalCost)}
-            accent
-          />
-        )}
+        <StatCard
+          label="Total Cost"
+          value={formatDisplayCost(summary.totalCost)}
+          accent
+        />
         <StatCard
           label="Total Tokens"
           value={formatTokens(summary.totalTokens)}
@@ -135,7 +130,7 @@ export function OverviewPage() {
       {/* Daily cost chart */}
       <section className="rounded-xl border border-claude-border bg-claude-surface p-4">
         <h2 className="mb-3 text-sm font-semibold text-claude-text">Daily Cost</h2>
-        <DailyCostChart data={summary.dailyCosts} height={200} />
+        <DailyCostChart data={convertedDailyCosts} height={200} />
       </section>
 
       {/* Model breakdown + Top projects */}

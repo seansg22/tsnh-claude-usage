@@ -26,17 +26,20 @@ interface TooltipProps {
 }
 
 interface CostLabelProps {
-  x?: number
-  y?: number
-  value?: number
+  x?: string | number
+  y?: string | number
+  value?: string | number
   index?: number
   dataLength?: number
 }
 
 function makeCostLabel(dataLength: number) {
   return function CostLabel({ x = 0, y = 0, value = 0, index = 0 }: CostLabelProps) {
-    if (!value || value <= 0) return null
-    const text = `$${value.toFixed(2)}`
+    const xNum = typeof x === 'string' ? parseFloat(x) : x
+    const yNum = typeof y === 'string' ? parseFloat(y) : y
+    const valueNum = typeof value === 'string' ? parseFloat(value) : value
+    if (!valueNum || valueNum <= 0) return null
+    const text = `$${valueNum.toFixed(2)}`
     const padX = 5
     const padY = 3
     const fontSize = 11
@@ -51,7 +54,7 @@ function makeCostLabel(dataLength: number) {
     const offsetX = isFirst ? 0 : isLast ? -rectW : -rectW / 2
 
     return (
-      <g transform={`translate(${x + offsetX}, ${y - rectH - 6})`}>
+      <g transform={`translate(${xNum + offsetX}, ${yNum - rectH - 6})`}>
         <rect
           x={0}
           y={0}

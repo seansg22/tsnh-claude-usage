@@ -143,6 +143,29 @@ export function getPricing(model: string): ModelPricing | null {
   return FALLBACK_PRICING
 }
 
+/** Context window sizes in tokens by model family */
+const CONTEXT_WINDOW_SIZES: Array<[string, number]> = [
+  ['claude-opus-4', 200_000],
+  ['claude-sonnet-4', 200_000],
+  ['claude-haiku-4', 200_000],
+  ['claude-sonnet-3-7', 200_000],
+  ['claude-3-5', 200_000],
+  ['claude-3-opus', 200_000],
+  ['claude-3-haiku', 200_000],
+]
+
+/**
+ * Get the context window size in tokens for a model.
+ * Defaults to 200k if the model is not recognized.
+ */
+export function getContextWindowSize(model: string): number {
+  const lower = model.toLowerCase()
+  for (const [key, size] of CONTEXT_WINDOW_SIZES) {
+    if (lower.includes(key)) return size
+  }
+  return 200_000
+}
+
 /**
  * Get a short display name for a model.
  */
