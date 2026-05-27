@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useProjectStore } from '../../stores/projectStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { StatCard } from '../../components/metrics/StatCard'
@@ -14,6 +14,7 @@ import { formatDistanceToNow } from 'date-fns'
 
 export function ProjectDetailPage() {
   const { projectDirName = '' } = useParams<{ projectDirName: string }>()
+  const navigate = useNavigate()
   const { baseDir } = useSettingsStore()
   const { fetchProjectDetail, getProjectDetail, isLoading, getError, invalidate } = useProjectStore()
   const [search, setSearch] = useState('')
@@ -55,9 +56,20 @@ export function ProjectDetailPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-claude-text">{detail.projectName}</h1>
-          <p className="mt-0.5 text-xs text-claude-muted font-mono">{detail.projectPath}</p>
+        <div className="flex items-start gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-claude-border text-claude-muted hover:border-claude-orange/30 hover:text-claude-text transition-colors"
+            title="Go back"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-lg font-semibold text-claude-text">{detail.projectName}</h1>
+            <p className="mt-0.5 text-xs text-claude-muted font-mono">{detail.projectPath}</p>
+          </div>
         </div>
         <button
           onClick={handleRefresh}

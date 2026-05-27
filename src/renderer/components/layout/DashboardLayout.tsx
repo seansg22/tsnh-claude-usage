@@ -46,6 +46,9 @@ function Breadcrumbs() {
 export function DashboardLayout() {
   const { isLoading, lastFetched, fetchSummary, selectedMonth } = useAnalyticsStore()
   const { baseDir } = useSettingsStore()
+  const location = useLocation()
+
+  const hideSidebar = /^\/dashboard\/projects\/[^/]+(\/sessions\/[^/]+)?$/.test(location.pathname)
 
   const handleRefresh = () => {
     if (!baseDir) return
@@ -57,10 +60,10 @@ export function DashboardLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      {!hideSidebar && <Sidebar />}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="app-drag flex h-12 flex-shrink-0 items-center justify-between border-b border-claude-border bg-claude-surface px-4">
+        <header className={`app-drag flex h-12 flex-shrink-0 items-center justify-between border-b border-claude-border bg-claude-surface ${hideSidebar ? 'pl-20 pr-4' : 'px-4'}`}>
           <div className="app-no-drag">
             <Breadcrumbs />
           </div>

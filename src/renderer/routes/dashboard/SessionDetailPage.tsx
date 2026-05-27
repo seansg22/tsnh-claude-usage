@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import mermaid from 'mermaid'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { StatCard } from '../../components/metrics/StatCard'
@@ -649,6 +649,7 @@ export function SessionDetailPage() {
     projectDirName: string
     sessionId: string
   }>()
+  const navigate = useNavigate()
   const { baseDir } = useSettingsStore()
   const { fetchSessionDetail, getSessionDetail, isLoading, getError } = useSessionStore()
   const [showRaw, setShowRaw] = useState(false)
@@ -686,11 +687,22 @@ export function SessionDetailPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h1 className="text-base font-semibold text-claude-text line-clamp-2">
-          {detail.title ?? (detail.firstPrompt ? parseRawPrompt(detail.firstPrompt) : 'Session')}
-        </h1>
-        <p className="mt-0.5 text-xs text-claude-muted font-mono">{detail.sessionId}</p>
+      <div className="flex items-start gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-claude-border text-claude-muted hover:border-claude-orange/30 hover:text-claude-text transition-colors"
+          title="Go back"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div>
+          <h1 className="text-base font-semibold text-claude-text line-clamp-2">
+            {detail.title ?? (detail.firstPrompt ? parseRawPrompt(detail.firstPrompt) : 'Session')}
+          </h1>
+          <p className="mt-0.5 text-xs text-claude-muted font-mono">{detail.sessionId}</p>
+        </div>
       </div>
 
       {/* Stats */}
