@@ -1,99 +1,110 @@
-# Claude Usage — Desktop Dashboard
+# TSNH Claude Usage
 
-A local-first Electron desktop app for analyzing your Claude Code usage: costs, tokens, projects, sessions, and prompts — all displayed in a native macOS dashboard with menu bar quick view.
+> A local-first macOS desktop app that tracks your Claude Code spending — cost, tokens, sessions, and full conversation transcripts — directly from your `~/.claude/projects/` data.
+
+![Overview](docs/overview.png)
 
 ---
 
 ## Features
 
-- **Overview Dashboard** — total cost, tokens, projects, sessions; daily cost chart; cost by model; recent sessions
-- **Projects View** — all projects sorted by activity with cost/token breakdown
-- **Project Detail** — per-project daily chart, model breakdown, searchable/sortable session list
-- **Session Detail** — full conversation view, token/cost breakdown, raw JSONL viewer
-- **Menu Bar Quick View** — today's cost, latest session info, all-time stats in a compact tray popover
-
-## Privacy
-
-**All data stays on your machine.** The app reads `~/.claude/projects/` (or a directory you choose) using local filesystem APIs. No data is sent to any server. No analytics, no telemetry, no network requests.
+- **Real-time cost dashboard** — total spend, token usage, daily cost chart, and per-model breakdown at a glance
+- **Project & session explorer** — drill into any project or individual session with full conversation transcripts
+- **Token breakdown** — see cache read, cache write, input, and output tokens per session with context window utilization
+- **Budget notifications** — set a monthly budget and daily limit; get macOS alerts at configurable thresholds (10 % → 100 %)
+- **Multi-currency support** — display costs in your local currency (SGD, USD, EUR, and more)
+- **Menu bar widget** — a compact tray popover shows your current period spend without opening the full dashboard
+- **Persistent filters** — date range, project filter, and search state survive app restarts
+- **Local-first & read-only** — reads only from `~/.claude/projects/`; never modifies your data, no telemetry, no network requests
 
 ---
 
-## Setup
+## Screenshots
+
+### Overview
+
+The main dashboard shows total cost, token volume, daily spend over time, model distribution, and your most expensive projects.
+
+![Overview](docs/overview.png)
+
+### Projects
+
+Browse all Claude Code projects sorted by cost, token count, or last-active date.
+
+![Projects](docs/projects.png)
+
+### Sessions
+
+Search and filter across all sessions by project, date range, or prompt text.
+
+![Sessions](docs/sessions.png)
+
+### Project Detail
+
+Per-project view with aggregated stats, a cost-by-model breakdown, and a full session list.
+
+![Project Detail](docs/project-detail.png)
+
+### Session Detail
+
+Full conversation transcript with per-turn metadata, a token breakdown table, and peak context window utilization.
+
+![Session Detail](docs/session-detail.png)
+
+### Notifications
+
+Set period-budget milestones and a daily spending cap. Fires a macOS notification the first time each threshold is crossed per billing cycle.
+
+![Notifications](docs/notifications.png)
+
+### Settings
+
+Configure your billing cycle day, monthly budget, display currency, and Claude projects directory.
+
+![Settings](docs/settings.png)
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm (`npm install -g pnpm`)
+- macOS
+- [Node.js](https://nodejs.org/) ≥ 18
+- [pnpm](https://pnpm.io/)
 
-### Install & Run
+### Install & run
 
 ```bash
+git clone https://github.com/<your-username>/tsnh-claude-usage.git
+cd tsnh-claude-usage
 pnpm install
 pnpm dev
 ```
 
-### Build (macOS)
+The app lives in the menu bar. Click the tray icon to open the popover, or use the **Open Dashboard** button for the full window.
+
+### Build a distributable
 
 ```bash
-pnpm build
-pnpm dist:mac
-```
-
-Distributable `.dmg` is output to `release/`.
-
-### Type Check
-
-```bash
-pnpm typecheck
+pnpm dist:mac   # produces a .dmg in release/
 ```
 
 ---
 
-## Architecture
+## Configuration
 
-```
-electron/
-  main/
-    app.ts        ← App lifecycle
-    tray.ts       ← Menu bar tray icon
-    windows.ts    ← BrowserWindow management
-    ipc.ts        ← IPC handlers (filesystem access)
-    scanner.ts    ← JSONL file scanner (Node.js readline streaming)
-  preload/
-    index.ts      ← contextBridge API
+All settings are available in the **Settings** page inside the app:
 
-src/
-  shared/
-    types/        ← Shared TypeScript types (jsonl, domain, ipc)
-    parser/       ← JSONL parser + session builder
-    pricing/      ← Model pricing config + cost calculator
-    analytics/    ← Project/session aggregation
-  renderer/
-    routes/
-      dashboard/  ← Overview, Projects, ProjectDetail, SessionDetail
-      menubar/    ← Compact tray popover
-    components/   ← Shared UI: StatCard, charts, tables, etc.
-    stores/       ← Zustand state (settings, analytics, project, session)
-```
-
-**Security**: `contextIsolation: true`, `nodeIntegration: false`. All filesystem access is in the main process only; the renderer communicates through typed IPC.
+| Setting | Description |
+|---|---|
+| **Billing Cycle Day** | Day of the month your Anthropic billing period resets (1–28) |
+| **Monthly Budget** | Shows a progress bar in the sidebar when spending approaches this amount |
+| **Billing Currency** | Your Anthropic billing currency; costs are converted for display |
+| **Data Directory** | Path to your Claude projects folder (default: `~/.claude/projects`) |
 
 ---
 
-## Pricing
+## License
 
-Costs are **estimated** based on official Anthropic pricing at time of writing (USD per million tokens):
-
-| Model | Input | Output | Cache Create | Cache Read |
-|-------|-------|--------|-------------|------------|
-| Claude Opus 4.7 | $15 | $75 | $18.75 | $1.50 |
-| Claude Sonnet 4.6 | $3 | $15 | $3.75 | $0.30 |
-| Claude Haiku 4.5 | $0.25 | $1.25 | $0.30 | $0.03 |
-
-Update `src/shared/pricing/models.ts` to adjust for pricing changes.
-
----
-
-## Data Source
-
-Claude Code stores session data in `~/.claude/projects/` as JSONL files — one file per session, organized in subdirectories named after the project path. The app reads these files locally; invalid lines are collected as parse errors rather than crashing.
+MIT
