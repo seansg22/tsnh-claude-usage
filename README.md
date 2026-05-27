@@ -1,8 +1,24 @@
-# TSNH Claude Usage
+# Claude Usage
 
 > A local-first macOS desktop app that tracks your Claude Code spending — cost, tokens, sessions, and full conversation transcripts — directly from your `~/.claude/projects/` data.
 
 ![Overview](docs/overview.png)
+
+---
+
+## Install
+
+**Download the latest release:**
+
+👉 [**Releases →**](https://github.com/seansg22/tsnh-claude-usage/releases/latest)
+
+1. Download the `.dmg` for your Mac (Apple Silicon → `arm64`, Intel → `x64`)
+2. Open the `.dmg` and drag **Claude Usage** to your Applications folder
+3. First launch: **right-click → Open** to bypass the Gatekeeper warning (app is unsigned)
+
+> The app lives in the **menu bar**. Click the tray icon to open the popover, or use **Open Dashboard** for the full window.
+
+Once installed, the app updates itself automatically — you'll get a prompt to restart when a new version is ready.
 
 ---
 
@@ -63,32 +79,11 @@ Configure your billing cycle day, monthly budget, display currency, and Claude p
 
 ![Settings](docs/settings.png)
 
----
+### Menu Bar Widget
 
-## Getting Started
+A compact tray popover showing your current-period spend, today's cost and token count, and a per-project breakdown — without opening the full dashboard.
 
-### Prerequisites
-
-- macOS
-- [Node.js](https://nodejs.org/) ≥ 18
-- [pnpm](https://pnpm.io/)
-
-### Install & run
-
-```bash
-git clone https://github.com/<your-username>/tsnh-claude-usage.git
-cd tsnh-claude-usage
-pnpm install
-pnpm dev
-```
-
-The app lives in the menu bar. Click the tray icon to open the popover, or use the **Open Dashboard** button for the full window.
-
-### Build a distributable
-
-```bash
-pnpm dist:mac   # produces a .dmg in release/
-```
+![Menu Bar Widget](docs/menubar-widget.png)
 
 ---
 

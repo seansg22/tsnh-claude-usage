@@ -2,6 +2,11 @@ appId: com.tsnh.claude-usage
 productName: Claude Usage
 copyright: Copyright © 2025 tsnh
 
+publish:
+  provider: github
+  owner: seansg22
+  repo: tsnh-claude-usage
+
 directories:
   buildResources: resources
   output: release

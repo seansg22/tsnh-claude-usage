@@ -49,7 +49,7 @@ export function createTray(
     }
   })
 
-  // Context menu (right-click or secondary click)
+  // Context menu (right-click only — keeps left-click for the popover)
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Open Dashboard',
@@ -71,7 +71,9 @@ export function createTray(
     },
   ])
 
-  tray.setContextMenu(contextMenu)
+  tray.on('right-click', () => {
+    tray.popUpContextMenu(contextMenu)
+  })
 
   return tray
 }
