@@ -4,7 +4,6 @@ import { clsx } from 'clsx'
 import { format } from 'date-fns'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { formatCost } from '@shared/pricing/calculator'
 import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 
 interface NavItemProps {
@@ -51,7 +50,7 @@ function BudgetWidget() {
   // Use unfilteredSummary so the sidebar always reflects the actual current period,
   // regardless of whatever month filter is active on the Overview page.
   const { unfilteredSummary } = useAnalyticsStore()
-  const { convertCost } = useCurrencyConverter()
+  const { convertCost, formatDisplayCost, currencySymbol } = useCurrencyConverter()
 
   const { periodStart, resetDate, daysLeft } = useMemo(
     () => getBillingPeriod(billingCycleDay),
@@ -89,7 +88,7 @@ function BudgetWidget() {
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">This Period</p>
         <p className="mt-1 text-2xl font-bold text-claude-orange leading-none">
-          {formatCost(effectivePeriodCost)}
+          {formatDisplayCost(rawPeriodCost)}
         </p>
       </div>
 
@@ -104,7 +103,7 @@ function BudgetWidget() {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-claude-muted">
-              of ${monthlyBudget!.toLocaleString()}
+              of {currencySymbol}{monthlyBudget!.toLocaleString()}
             </span>
             <span
               className={`text-xs font-semibold ${pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400'}`}
@@ -127,7 +126,7 @@ function BudgetWidget() {
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">Today</p>
         <p className="mt-1 text-xl font-bold text-claude-text leading-none">
-          {formatCost(effectiveTodayCost)}
+          {formatDisplayCost(rawTodayCost)}
         </p>
       </div>
     </div>

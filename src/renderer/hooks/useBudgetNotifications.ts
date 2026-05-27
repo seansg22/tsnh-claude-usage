@@ -27,13 +27,17 @@ export function useBudgetNotifications() {
           usageBudgetNotifications, notifiedThresholds, markThresholdNotified,
           dailyBudget, dailyBudgetNotifications, notifiedDailyBudget, markDailyBudgetNotified } =
     useSettingsStore()
-  const { summary, fetchSummary } = useAnalyticsStore()
+  // unfilteredSummary always holds full all-time data regardless of what month
+  // filter the user has active on the dashboard — correct source for budget checks.
+  const { unfilteredSummary: summary, fetchSummary } = useAnalyticsStore()
   const { convertCost } = useCurrencyConverter()
 
   // Periodic re-fetch so the check runs in the background
   useEffect(() => {
     if (!baseDir) return
-    const id = setInterval(() => fetchSummary(baseDir), POLL_INTERVAL_MS)
+    // notificationOnly=true: silent background fetch — updates unfilteredSummary
+    // for budget checks only, never touches summary/projects or shows a spinner.
+    const id = setInterval(() => fetchSummary(baseDir, false, undefined, true), POLL_INTERVAL_MS)
     return () => clearInterval(id)
   }, [baseDir, fetchSummary])
 

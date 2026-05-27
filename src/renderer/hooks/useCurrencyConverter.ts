@@ -2,6 +2,31 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useCurrencyStore } from '../stores/currencyStore'
 import { formatCost } from '@shared/pricing/calculator'
 
+/** Maps ISO currency codes to their display symbol. Falls back to "<CODE> " for unknown currencies. */
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$',
+  SGD: 'S$',
+  EUR: '€',
+  GBP: '£',
+  JPY: '¥',
+  AUD: 'A$',
+  CAD: 'C$',
+  HKD: 'HK$',
+  NZD: 'NZ$',
+  CHF: 'CHF ',
+  KRW: '₩',
+  INR: '₹',
+  BRL: 'R$',
+  MXN: 'MX$',
+  CNY: '¥',
+  TWD: 'NT$',
+  MYR: 'RM',
+  THB: '฿',
+  VND: '₫',
+  PHP: '₱',
+  IDR: 'Rp',
+}
+
 /**
  * Returns helpers for converting and displaying costs.
  *
@@ -21,10 +46,11 @@ export function useCurrencyConverter() {
   const rates = useCurrencyStore((state) => state.rates)
 
   const rate = currency === 'USD' ? 1 : (rates[currency] ?? 1)
+  const currencySymbol = CURRENCY_SYMBOLS[currency] ?? `${currency} `
 
   const convertCost = (rawCost: number): number => (rate > 0 ? rawCost / rate : rawCost)
 
-  const formatDisplayCost = (rawCost: number): string => formatCost(convertCost(rawCost))
+  const formatDisplayCost = (rawCost: number): string => formatCost(convertCost(rawCost), currencySymbol)
 
-  return { convertCost, formatDisplayCost, rate, currency }
+  return { convertCost, formatDisplayCost, rate, currency, currencySymbol }
 }

@@ -13,6 +13,7 @@ import type { DailyCost } from '@shared/types/domain'
 import { formatCost, formatTokens } from '@shared/pricing/calculator'
 import { format, parseISO } from 'date-fns'
 import { fillDailyCostGaps } from '@shared/analytics/aggregator'
+import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 
 interface DailyCostChartProps {
   data: DailyCost[]
@@ -23,6 +24,7 @@ interface TooltipProps {
   active?: boolean
   payload?: Array<{ value: number; payload: DailyCost }>
   label?: string
+  currencySymbol?: string
 }
 
 interface CostLabelProps {
@@ -33,13 +35,13 @@ interface CostLabelProps {
   dataLength?: number
 }
 
-function makeCostLabel(dataLength: number) {
+function makeCostLabel(dataLength: number, symbol = '$') {
   return function CostLabel({ x = 0, y = 0, value = 0, index = 0 }: CostLabelProps) {
     const xNum = typeof x === 'string' ? parseFloat(x) : x
     const yNum = typeof y === 'string' ? parseFloat(y) : y
     const valueNum = typeof value === 'string' ? parseFloat(value) : value
     if (!valueNum || valueNum <= 0) return null
-    const text = `$${valueNum.toFixed(2)}`
+    const text = `${symbol}${valueNum.toFixed(2)}`
     const padX = 5
     const padY = 3
     const fontSize = 11
@@ -83,14 +85,14 @@ function makeCostLabel(dataLength: number) {
   }
 }
 
-function CustomTooltip({ active, payload, label }: TooltipProps) {
+function CustomTooltip({ active, payload, label, currencySymbol = '$' }: TooltipProps) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
 
   return (
     <div className="rounded-lg border border-claude-border bg-claude-surface p-3 shadow-xl text-xs">
       <p className="mb-2 font-semibold text-claude-text">{label}</p>
-      <p className="text-claude-orange font-mono">{formatCost(d.cost)}</p>
+      <p className="text-claude-orange font-mono">{formatCost(d.cost, currencySymbol)}</p>
       <div className="mt-1.5 space-y-0.5 text-claude-muted">
         <p>Input: {formatTokens(d.inputTokens)}</p>
         <p>Output: {formatTokens(d.outputTokens)}</p>
@@ -102,6 +104,7 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
 }
 
 export function DailyCostChart({ data, height = 200 }: DailyCostChartProps) {
+  const { currencySymbol } = useCurrencyConverter()
   const filled = fillDailyCostGaps(data)
 
   const chartData = filled.map((d) => ({
@@ -141,10 +144,10 @@ export function DailyCostChart({ data, height = 200 }: DailyCostChartProps) {
           tick={{ fontSize: 11, fill: '#8A8A8A' }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => formatCost(v)}
+          tickFormatter={(v) => formatCost(v, currencySymbol)}
           width={55}
         />
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip content={<CustomTooltip currencySymbol={currencySymbol} />} />
         <Area
           type="monotone"
           dataKey="cost"
@@ -154,7 +157,7 @@ export function DailyCostChart({ data, height = 200 }: DailyCostChartProps) {
           dot={false}
           activeDot={{ r: 4, fill: '#E8632A' }}
         >
-          <LabelList dataKey="cost" content={makeCostLabel(chartData.length)} />
+          <LabelList dataKey="cost" content={makeCostLabel(chartData.length, currencySymbol)} />
         </Area>
       </AreaChart>
     </ResponsiveContainer>

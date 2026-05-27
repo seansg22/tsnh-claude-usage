@@ -1,8 +1,9 @@
 import React from 'react'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { ModelCost } from '@shared/types/domain'
 import { formatCost } from '@shared/pricing/calculator'
 import { getModelDisplayName } from '@shared/pricing/models'
+import { useCurrencyConverter } from '../../hooks/useCurrencyConverter'
 
 const MODEL_COLORS = [
   '#E8632A', // claude-orange
@@ -21,22 +22,23 @@ interface ModelPieChartProps {
 interface TooltipProps {
   active?: boolean
   payload?: Array<{ payload: ModelCost & { color: string } }>
+  currencySymbol?: string
 }
 
-function CustomTooltip({ active, payload }: TooltipProps) {
+function CustomTooltip({ active, payload, currencySymbol = '$' }: TooltipProps) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
 
   return (
     <div className="rounded-lg border border-claude-border bg-claude-surface p-3 shadow-xl text-xs">
       <p className="mb-1 font-semibold text-claude-text">{getModelDisplayName(d.model)}</p>
-      <p className="text-claude-orange font-mono">{formatCost(d.cost)}</p>
+      <p className="text-claude-orange font-mono">{formatCost(d.cost, currencySymbol)}</p>
       <p className="text-claude-muted">{d.percentage.toFixed(1)}% of total</p>
     </div>
   )
 }
 
-function CustomLegend({ data }: { data: (ModelCost & { color: string })[] }) {
+function CustomLegend({ data, currencySymbol = '$' }: { data: (ModelCost & { color: string })[]; currencySymbol?: string }) {
   return (
     <div className="space-y-1.5 mt-2">
       {data.map((item) => (
@@ -49,7 +51,7 @@ function CustomLegend({ data }: { data: (ModelCost & { color: string })[] }) {
             <span className="text-claude-text truncate">{getModelDisplayName(item.model)}</span>
           </div>
           <span className="font-mono text-claude-muted flex-shrink-0">
-            {formatCost(item.cost)} ({item.percentage.toFixed(0)}%)
+            {formatCost(item.cost, currencySymbol)} ({item.percentage.toFixed(0)}%)
           </span>
         </div>
       ))}
@@ -58,6 +60,8 @@ function CustomLegend({ data }: { data: (ModelCost & { color: string })[] }) {
 }
 
 export function ModelPieChart({ data, height = 160 }: ModelPieChartProps) {
+  const { currencySymbol } = useCurrencyConverter()
+
   if (data.length === 0) {
     return (
       <div
@@ -93,10 +97,10 @@ export function ModelPieChart({ data, height = 160 }: ModelPieChartProps) {
               <Cell key={entry.model} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip currencySymbol={currencySymbol} />} />
         </PieChart>
       </ResponsiveContainer>
-      <CustomLegend data={coloredData} />
+      <CustomLegend data={coloredData} currencySymbol={currencySymbol} />
     </div>
   )
 }

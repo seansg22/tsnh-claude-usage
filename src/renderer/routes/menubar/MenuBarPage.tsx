@@ -11,7 +11,7 @@ const AUTO_REFRESH_MS = 2_000
 
 export function MenuBarPage() {
   const { baseDir, billingCycleDay, monthlyBudget } = useSettingsStore()
-  const { convertCost, formatDisplayCost } = useCurrencyConverter()
+  const { convertCost, formatDisplayCost, currencySymbol } = useCurrencyConverter()
   const { fetchRates } = useCurrencyStore()
 
   // Sync settings from dashboard window (separate BrowserWindow shares localStorage).
@@ -162,7 +162,7 @@ export function MenuBarPage() {
                       />
                     </div>
                     <p className="text-[10px] text-white/40">
-                      {formatDisplayCost(data.currentPeriodCost)} of ${monthlyBudget!.toLocaleString()} · {pct.toFixed(1)}%
+                      {formatDisplayCost(data.currentPeriodCost)} of {currencySymbol}{monthlyBudget!.toLocaleString()} · {pct.toFixed(1)}%
                     </p>
                   </div>
                 ) : (

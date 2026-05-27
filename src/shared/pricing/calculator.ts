@@ -26,14 +26,15 @@ export function calculateCost(usage: RawUsageData, model: string): number {
 }
 
 /**
- * Format cost as $X.XXXX
+ * Format cost with an optional currency symbol (defaults to '$').
+ * Pass the symbol from useCurrencyConverter().currencySymbol for non-USD display.
  */
-export function formatCost(cost: number): string {
-  if (cost === 0) return '$0.00'
-  if (cost < 0.0001) return '<$0.0001'
-  if (cost < 0.01) return `$${cost.toFixed(4)}`
-  if (cost < 1) return `$${cost.toFixed(4)}`
-  return `$${cost.toFixed(2)}`
+export function formatCost(cost: number, symbol = '$'): string {
+  if (cost === 0) return `${symbol}0.00`
+  if (cost < 0.0001) return `<${symbol}0.0001`
+  if (cost < 0.01) return `${symbol}${cost.toFixed(4)}`
+  if (cost < 1) return `${symbol}${cost.toFixed(4)}`
+  return `${symbol}${cost.toFixed(2)}`
 }
 
 /**

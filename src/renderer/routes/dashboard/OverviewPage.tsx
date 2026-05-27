@@ -69,6 +69,13 @@ export function OverviewPage() {
     [summary?.dailyCosts, rate],
   )
 
+  // Convert model cost data for chart display — invalidate when rate changes
+  const convertedCostByModel = useMemo(
+    () => summary?.costByModel.map((m) => ({ ...m, cost: convertCost(m.cost) })) ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [summary?.costByModel, rate],
+  )
+
   if (isLoading || isInitializing) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -137,7 +144,7 @@ export function OverviewPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_3fr]">
         <section className="rounded-xl border border-claude-border bg-claude-surface p-4">
           <h2 className="mb-3 text-sm font-semibold text-claude-text">Cost by Model</h2>
-          <ModelPieChart data={summary.costByModel} height={160} />
+          <ModelPieChart data={convertedCostByModel} height={160} />
         </section>
 
         <section className="rounded-xl border border-claude-border bg-claude-surface p-4">

@@ -42,6 +42,13 @@ export function ProjectDetailPage() {
     [detail?.dailyCosts, rate],
   )
 
+  // Convert model cost data for chart display
+  const convertedCostByModel = useMemo(
+    () => detail?.costByModel.map((m) => ({ ...m, cost: convertCost(m.cost) })) ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [detail?.costByModel, rate],
+  )
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -134,7 +141,7 @@ export function ProjectDetailPage() {
             {/* Cost by Model chart */}
             <section className="rounded-lg border border-claude-border bg-claude-surface px-3 py-2">
               <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-claude-muted">Cost by Model</h2>
-              <ModelPieChart data={detail.costByModel} height={130} />
+              <ModelPieChart data={convertedCostByModel} height={130} />
             </section>
 
           </div>
