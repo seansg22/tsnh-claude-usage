@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
+import React, { useEffect, useRef, useMemo } from 'react'
 import { format } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import { useAnalyticsStore } from '../../stores/analyticsStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { StatCard } from '../../components/metrics/StatCard'
 import { DailyCostChart } from '../../components/charts/DailyCostChart'
 import { ModelPieChart } from '../../components/charts/ModelPieChart'
-import { SessionTable } from '../../components/tables/SessionTable'
 import { ProjectTable } from '../../components/tables/ProjectTable'
 import { LoadingOverlay } from '../../components/ui/LoadingOverlay'
 import { ErrorBanner } from '../../components/ui/ErrorBanner'
@@ -37,27 +37,27 @@ export function OverviewPage() {
     selectedMonth,
     setSelectedMonth,
   } = useAnalyticsStore()
-  const { baseDir, billingCycleDay, monthlyBudget, setMonthlyBudget } = useSettingsStore()
+  const { baseDir, billingCycleDay, monthlyBudget, pricingDiscount } = useSettingsStore()
+  const navigate = useNavigate()
+  const hasAutoSelected = useRef(false)
 
-  const [isEditingBudget, setIsEditingBudget] = useState(false)
-  const [budgetInput, setBudgetInput] = useState('')
-  const budgetInputRef = useRef<HTMLInputElement>(null)
-
-  const commitBudget = () => {
-    const val = parseFloat(budgetInput)
-    setMonthlyBudget(!isNaN(val) && val > 0 ? val : null)
-    setIsEditingBudget(false)
-  }
-
-  const startEditingBudget = () => {
-    setBudgetInput(monthlyBudget != null ? String(monthlyBudget) : '')
-    setIsEditingBudget(true)
-    setTimeout(() => budgetInputRef.current?.focus(), 0)
-  }
-
+  // Initial full fetch — populates availableMonths
   useEffect(() => {
+    hasAutoSelected.current = false
     if (baseDir) fetchSummary(baseDir)
   }, [baseDir])
+
+  // Auto-select current month once availableMonths is first populated
+  useEffect(() => {
+    if (availableMonths.length > 0 && !hasAutoSelected.current && baseDir) {
+      hasAutoSelected.current = true
+      const currentMonth = format(new Date(), 'yyyy-MM')
+      if (availableMonths.includes(currentMonth)) {
+        setSelectedMonth(currentMonth, baseDir)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableMonths])
 
   const { periodStart, resetDate, daysLeft } = useMemo(
     () => getBillingPeriod(billingCycleDay),
@@ -71,6 +71,11 @@ export function OverviewPage() {
       .filter((d) => d.date >= startStr)
       .reduce((sum, d) => sum + d.cost, 0)
   }, [summary, periodStart])
+
+  const discountedCost = useMemo(() => {
+    if (pricingDiscount <= 0) return null
+    return periodCost * (1 - pricingDiscount / 100)
+  }, [periodCost, pricingDiscount])
 
   if (isLoading) {
     return (
@@ -111,11 +116,25 @@ export function OverviewPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
-          label="Total Cost"
-          value={formatCost(summary.totalCost)}
-          accent
-        />
+        {pricingDiscount > 0 ? (
+          <StatCard
+            label="Total Cost"
+            value={formatCost(summary.totalCost * (1 - pricingDiscount / 100))}
+            accentGreen
+            sub={
+              <span className="flex items-center gap-1.5">
+                <span className="line-through">{formatCost(summary.totalCost)}</span>
+                <span className="text-green-500/70">-{pricingDiscount}%</span>
+              </span>
+            }
+          />
+        ) : (
+          <StatCard
+            label="Total Cost"
+            value={formatCost(summary.totalCost)}
+            accent
+          />
+        )}
         <StatCard
           label="Total Tokens"
           value={formatTokens(summary.totalTokens)}
@@ -132,7 +151,8 @@ export function OverviewPage() {
 
       {/* Billing Period Banner — only relevant for current month or all-time view */}
       {(selectedMonth === null || selectedMonth === format(new Date(), 'yyyy-MM')) && (() => {
-        const pct = monthlyBudget != null ? Math.min(100, (periodCost / monthlyBudget) * 100) : null
+        const effectiveCost = discountedCost ?? periodCost
+        const pct = monthlyBudget != null ? Math.min(100, (effectiveCost / monthlyBudget) * 100) : null
         const barColor =
           pct == null ? ''
           : pct >= 90 ? 'bg-red-500'
@@ -149,9 +169,21 @@ export function OverviewPage() {
                   <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">
                     This Period
                   </p>
-                  <p className="mt-0.5 text-xl font-bold text-claude-orange">
-                    {formatCost(periodCost)}
-                  </p>
+                  {discountedCost != null ? (
+                    <>
+                      <p className="mt-0.5 text-2xl font-bold text-green-400">
+                        {formatCost(discountedCost)}
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-1.5">
+                        <span className="text-xs line-through text-claude-muted">{formatCost(periodCost)}</span>
+                        <span className="text-xs font-medium text-green-500/70">-{pricingDiscount}%</span>
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-0.5 text-xl font-bold text-claude-orange">
+                      {formatCost(periodCost)}
+                    </p>
+                  )}
                 </div>
                 <div className="h-8 w-px bg-claude-border" />
                 {/* Reset countdown */}
@@ -172,69 +204,35 @@ export function OverviewPage() {
                   <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">
                     Monthly Budget
                   </p>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    {isEditingBudget ? (
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm text-claude-muted">$</span>
-                        <input
-                          ref={budgetInputRef}
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={budgetInput}
-                          onChange={(e) => setBudgetInput(e.target.value)}
-                          onBlur={commitBudget}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitBudget()
-                            if (e.key === 'Escape') setIsEditingBudget(false)
-                          }}
-                          className="w-20 rounded-md border border-claude-border bg-claude-bg px-2 py-0.5 text-sm text-claude-text focus:outline-none focus:ring-1 focus:ring-claude-orange/50"
-                          placeholder="0"
-                        />
-                      </div>
-                    ) : monthlyBudget != null ? (
-                      <>
-                        <span className="text-sm font-semibold text-claude-text">
-                          ${monthlyBudget.toLocaleString()}
-                        </span>
-                        <button
-                          onClick={startEditingBudget}
-                          className="text-claude-muted hover:text-claude-text transition-colors"
-                          title="Edit budget"
-                        >
-                          <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 01-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => setMonthlyBudget(null)}
-                          className="text-claude-muted hover:text-red-400 transition-colors"
-                          title="Remove budget"
-                        >
-                          <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
-                          </svg>
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={startEditingBudget}
-                        className="text-xs text-claude-muted hover:text-claude-orange transition-colors underline underline-offset-2"
-                      >
-                        Set budget
-                      </button>
-                    )}
-                  </div>
+                  <p className="mt-0.5 text-sm font-semibold text-claude-text">
+                    {monthlyBudget != null ? `$${monthlyBudget.toLocaleString()}` : '—'}
+                  </p>
+                </div>
+                <div className="h-8 w-px bg-claude-border" />
+                {/* Pricing Discount */}
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">
+                    Discount
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-green-400">
+                    {pricingDiscount > 0 ? `${pricingDiscount}%` : '—'}
+                  </p>
                 </div>
               </div>
-              {/* Percentage badge */}
-              {pct != null && (
-                <span
-                  className={`text-sm font-bold ${pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400'}`}
+              <div className="flex items-center gap-3">
+                {/* Settings link */}
+                <button
+                  onClick={() => navigate('/dashboard/settings')}
+                  className="flex items-center gap-1 text-xs text-claude-muted hover:text-claude-text transition-colors"
+                  title="Open Settings"
                 >
-                  {pct.toFixed(1)}%
-                </span>
-              )}
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Settings
+                </button>
+              </div>
             </div>
 
             {/* Progress bar */}
@@ -246,9 +244,19 @@ export function OverviewPage() {
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <p className="text-xs text-claude-muted">
-                  {formatCost(periodCost)} of ${monthlyBudget!.toLocaleString()} used
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-claude-muted">
+                    {formatCost(effectiveCost)} of ${monthlyBudget!.toLocaleString()} used
+                    {discountedCost != null && (
+                      <span className="ml-1 text-claude-muted/60">(after discount)</span>
+                    )}
+                  </p>
+                  <span
+                    className={`text-xs font-semibold ${pct >= 90 ? 'text-red-400' : pct >= 75 ? 'text-yellow-400' : 'text-green-400'}`}
+                  >
+                    {pct.toFixed(1)}% of budget
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -274,15 +282,6 @@ export function OverviewPage() {
         </section>
       </div>
 
-      {/* Recent sessions */}
-      <section className="rounded-xl border border-claude-border bg-claude-surface p-4">
-        <h2 className="mb-3 text-sm font-semibold text-claude-text">
-          {selectedMonth
-            ? `Sessions — ${format(new Date(`${selectedMonth}-01`), 'MMMM yyyy')}`
-            : 'Recent Sessions'}
-        </h2>
-        <SessionTable sessions={summary.recentSessions} />
-      </section>
     </div>
   )
 }

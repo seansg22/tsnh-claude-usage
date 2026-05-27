@@ -1,6 +1,6 @@
-import type { SessionSummary, ProjectSummary, ProjectDetail, AnalyticsSummary, MenuBarData, TokenUsage, DailyCost, ModelCost } from '../types/domain'
+import type { SessionSummary, ProjectSummary, ProjectDetail, AnalyticsSummary, MenuBarData, MenuBarProjectBreakdown, TokenUsage, DailyCost, ModelCost } from '../types/domain'
 import { groupCostByDay, groupCostByModel } from '../pricing/calculator'
-import { startOfDay, isAfter, subDays, format } from 'date-fns'
+import { startOfDay, isAfter, format } from 'date-fns'
 
 function emptyUsage(): TokenUsage {
   return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, totalTokens: 0 }
@@ -113,9 +113,8 @@ export function buildAnalyticsSummary(sessions: SessionSummary[]): AnalyticsSumm
   const dailyCosts = groupCostByDay(sessions)
   const costByModel = groupCostByModel(sessions)
 
-  const recentSessions = [...sessions]
-    .sort((a, b) => b.lastActive.localeCompare(a.lastActive))
-    .slice(0, 10)
+  const allSessionsSorted = [...sessions].sort((a, b) => b.lastActive.localeCompare(a.lastActive))
+  const recentSessions = allSessionsSorted.slice(0, 10)
 
   const topProjects = [...projects].sort((a, b) => b.estimatedCost - a.estimatedCost).slice(0, 5)
 
@@ -133,6 +132,7 @@ export function buildAnalyticsSummary(sessions: SessionSummary[]): AnalyticsSumm
     dailyCosts,
     costByModel,
     recentSessions,
+    allSessions: allSessionsSorted,
     topProjects,
     allProjects: projects,
     dateRange,
@@ -160,56 +160,50 @@ function getBillingPeriod(cycleDay: number, now: Date) {
 export function buildMenuBarData(sessions: SessionSummary[], billingCycleDay = 1): MenuBarData {
   const now = new Date()
   const todayStart = startOfDay(now)
-  const weekStart = subDays(todayStart, 7)
   const { periodStart, resetDate, daysLeft } = getBillingPeriod(billingCycleDay, now)
   const periodStartStr = format(periodStart, 'yyyy-MM-dd')
 
   let todayCost = 0
   let todayTokens = 0
-  let weekCost = 0
-  let totalCost = 0
   let currentPeriodCost = 0
+
+  const todayByProjectMap = new Map<string, MenuBarProjectBreakdown>()
 
   for (const session of sessions) {
     const lastActiveDate = new Date(session.lastActive)
     const sessionDateStr = format(lastActiveDate, 'yyyy-MM-dd')
-    totalCost += session.estimatedCost
 
-    if (isAfter(lastActiveDate, weekStart)) {
-      weekCost += session.estimatedCost
-    }
     if (isAfter(lastActiveDate, todayStart)) {
       todayCost += session.estimatedCost
       todayTokens += session.usage.totalTokens
+
+      const existing = todayByProjectMap.get(session.projectDirName)
+      if (existing) {
+        existing.cost += session.estimatedCost
+        existing.tokens += session.usage.totalTokens
+      } else {
+        todayByProjectMap.set(session.projectDirName, {
+          projectName: session.projectName,
+          cost: session.estimatedCost,
+          tokens: session.usage.totalTokens,
+        })
+      }
     }
     if (sessionDateStr >= periodStartStr) {
       currentPeriodCost += session.estimatedCost
     }
   }
 
-  // Latest session
-  const sorted = [...sessions].sort((a, b) => b.lastActive.localeCompare(a.lastActive))
-  const latest = sorted[0]
-
-  const latestSession = latest
-    ? {
-        cost: latest.estimatedCost,
-        projectName: latest.projectName,
-        model: latest.primaryModel,
-        lastActive: latest.lastActive,
-        firstPrompt: latest.firstPrompt,
-      }
-    : null
+  const todayByProject = Array.from(todayByProjectMap.values())
+    .sort((a, b) => b.cost - a.cost)
 
   return {
     todayCost,
     todayTokens,
-    weekCost,
-    totalCost,
     currentPeriodCost,
     periodResetDate: resetDate.toISOString(),
     periodDaysLeft: daysLeft,
-    latestSession,
+    todayByProject,
   }
 }
 

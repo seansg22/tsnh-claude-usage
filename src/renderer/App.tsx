@@ -5,6 +5,8 @@ import { OverviewPage } from './routes/dashboard/OverviewPage'
 import { ProjectsPage } from './routes/dashboard/ProjectsPage'
 import { ProjectDetailPage } from './routes/dashboard/ProjectDetailPage'
 import { SessionDetailPage } from './routes/dashboard/SessionDetailPage'
+import { SessionsPage } from './routes/dashboard/SessionsPage'
+import { SettingsPage } from './routes/dashboard/SettingsPage'
 import { MenuBarPage } from './routes/menubar/MenuBarPage'
 import { DirectorySetup } from './components/settings/DirectorySetup'
 import { useSettingsStore } from './stores/settingsStore'
@@ -45,6 +47,8 @@ export default function App() {
             path="projects/:projectDirName/sessions/:sessionId"
             element={<SessionDetailPage />}
           />
+          <Route path="sessions" element={<SessionsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
 
         {/* Default redirect */}

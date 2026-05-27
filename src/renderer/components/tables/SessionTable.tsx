@@ -29,9 +29,11 @@ interface SessionTableProps {
   sessions: SessionSummary[]
   projectDirName?: string
   searchQuery?: string
+  showProject?: boolean
+  emptyMessage?: string
 }
 
-export function SessionTable({ sessions, projectDirName, searchQuery = '' }: SessionTableProps) {
+export function SessionTable({ sessions, projectDirName, searchQuery = '', showProject = false, emptyMessage }: SessionTableProps) {
   const navigate = useNavigate()
   const [sortField, setSortField] = useState<SortField>('lastActive')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -114,7 +116,7 @@ export function SessionTable({ sessions, projectDirName, searchQuery = '' }: Ses
   if (sorted.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-claude-muted">
-        {searchQuery ? 'No sessions match your search.' : 'No sessions found.'}
+        {emptyMessage ?? (searchQuery ? 'No sessions match your search.' : 'No sessions found.')}
       </div>
     )
   }
@@ -125,26 +127,31 @@ export function SessionTable({ sessions, projectDirName, searchQuery = '' }: Ses
         <table className="w-full">
           <thead className="border-b border-claude-border bg-claude-surface">
             <tr>
-              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-claude-muted">
+              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-claude-muted w-[400px]">
                 Prompt
               </th>
+              {showProject && (
+                <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-claude-muted w-32">
+                  Project
+                </th>
+              )}
               <HeaderCell field="cost" label="Cost" className="w-24" />
               <HeaderCell field="tokens" label="Tokens" className="w-24" />
               <HeaderCell field="messages" label="Msgs" className="w-16" />
-              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-claude-muted w-32">
+              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-claude-muted w-40">
                 Model
               </th>
               <HeaderCell field="lastActive" label="Last Active" className="w-28" />
             </tr>
           </thead>
           <tbody className="divide-y divide-claude-border/50">
-            {sorted.map((session) => (
+            {sorted.map((session, idx) => (
               <tr
-                key={session.sessionId}
+                key={session.sessionId ? `${session.sessionId}-${session.projectDirName}` : `${session.projectDirName}-${idx}`}
                 className="cursor-pointer hover:bg-claude-surface/50 transition-colors group"
                 onClick={() => handleRowClick(session)}
               >
-                <td className="px-3 py-3 max-w-xs">
+                <td className="px-3 py-3 max-w-[400px] w-[400px]">
                   {(() => {
                     if (session.title) {
                       return (
@@ -171,6 +178,13 @@ export function SessionTable({ sessions, projectDirName, searchQuery = '' }: Ses
                     {session.sessionId.slice(0, 8)}…
                   </p>
                 </td>
+                {showProject && (
+                  <td className="px-3 py-3">
+                    <span className="text-xs text-claude-muted truncate max-w-[8rem] block">
+                      {session.projectName}
+                    </span>
+                  </td>
+                )}
                 <td className="px-3 py-3">
                   <CostBadge cost={session.estimatedCost} size="sm" />
                 </td>
@@ -178,7 +192,7 @@ export function SessionTable({ sessions, projectDirName, searchQuery = '' }: Ses
                   {formatTokens(session.usage.totalTokens)}
                 </td>
                 <td className="px-3 py-3 text-xs text-claude-muted">{session.messageCount}</td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 whitespace-nowrap">
                   <span className="text-xs text-claude-muted">
                     {getModelDisplayName(session.primaryModel) || '—'}
                   </span>

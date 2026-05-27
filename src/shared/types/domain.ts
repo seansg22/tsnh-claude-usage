@@ -100,26 +100,25 @@ export interface AnalyticsSummary {
   dailyCosts: DailyCost[]
   costByModel: ModelCost[]
   recentSessions: SessionSummary[]
+  allSessions: SessionSummary[]
   topProjects: ProjectSummary[]
   allProjects: ProjectSummary[]
   dateRange: { from: string; to: string }
 }
 
+export interface MenuBarProjectBreakdown {
+  projectName: string
+  cost: number
+  tokens: number
+}
+
 export interface MenuBarData {
   todayCost: number
   todayTokens: number
-  weekCost: number
-  totalCost: number
   currentPeriodCost: number
   periodResetDate: string // ISO date string
   periodDaysLeft: number
-  latestSession: {
-    cost: number
-    projectName: string
-    model: string
-    lastActive: string
-    firstPrompt: string | null
-  } | null
+  todayByProject: MenuBarProjectBreakdown[]
 }
 
 export interface ScanProgress {

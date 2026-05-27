@@ -28,8 +28,8 @@ export function createTray(
     } catch { /* skip */ }
   }
 
-  // Resize to proper tray size (16x16 on standard, 32x32 on retina)
-  const sized = icon.resize({ width: 16, height: 16 })
+  // Resize to 22x22 (standard macOS menu bar icon size)
+  const sized = icon.resize({ width: 22, height: 22 })
   // Do NOT set template image — keep orange color visible
 
 

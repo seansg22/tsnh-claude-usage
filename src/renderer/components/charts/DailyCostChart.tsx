@@ -7,6 +7,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  LabelList,
 } from 'recharts'
 import type { DailyCost } from '@shared/types/domain'
 import { formatCost, formatTokens } from '@shared/pricing/calculator'
@@ -22,6 +23,61 @@ interface TooltipProps {
   active?: boolean
   payload?: Array<{ value: number; payload: DailyCost }>
   label?: string
+}
+
+interface CostLabelProps {
+  x?: number
+  y?: number
+  value?: number
+  index?: number
+  dataLength?: number
+}
+
+function makeCostLabel(dataLength: number) {
+  return function CostLabel({ x = 0, y = 0, value = 0, index = 0 }: CostLabelProps) {
+    if (!value || value <= 0) return null
+    const text = `$${value.toFixed(2)}`
+    const padX = 5
+    const padY = 3
+    const fontSize = 11
+    const textWidth = text.length * 6.5
+    const rectW = textWidth + padX * 2
+    const rectH = fontSize + padY * 2
+    const rx = rectH / 2 - 1
+
+    // Shift pill horizontally so it stays within chart bounds
+    const isFirst = index === 0
+    const isLast = index === dataLength - 1
+    const offsetX = isFirst ? 0 : isLast ? -rectW : -rectW / 2
+
+    return (
+      <g transform={`translate(${x + offsetX}, ${y - rectH - 6})`}>
+        <rect
+          x={0}
+          y={0}
+          width={rectW}
+          height={rectH}
+          rx={rx}
+          ry={rx}
+          fill="#1A1A1A"
+          fillOpacity={1}
+          stroke="#E8632A"
+          strokeOpacity={0.9}
+          strokeWidth={1}
+        />
+        <text
+          x={rectW / 2}
+          y={fontSize + padY - 2}
+          textAnchor="middle"
+          fontSize={fontSize}
+          fontFamily="monospace"
+          fill="#E8632A"
+        >
+          {text}
+        </text>
+      </g>
+    )
+  }
 }
 
 function CustomTooltip({ active, payload, label }: TooltipProps) {
@@ -63,7 +119,7 @@ export function DailyCostChart({ data, height = 200 }: DailyCostChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+      <AreaChart data={chartData} margin={{ top: 32, right: 10, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#E8632A" stopOpacity={0.3} />
@@ -94,7 +150,9 @@ export function DailyCostChart({ data, height = 200 }: DailyCostChartProps) {
           fill="url(#costGradient)"
           dot={false}
           activeDot={{ r: 4, fill: '#E8632A' }}
-        />
+        >
+          <LabelList dataKey="cost" content={makeCostLabel(chartData.length)} />
+        </Area>
       </AreaChart>
     </ResponsiveContainer>
   )

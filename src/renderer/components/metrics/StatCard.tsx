@@ -4,19 +4,21 @@ import { clsx } from 'clsx'
 interface StatCardProps {
   label: string
   value: string | number
-  sub?: string
+  sub?: React.ReactNode
   trend?: number
   icon?: React.ReactNode
   className?: string
   accent?: boolean
+  accentGreen?: boolean
 }
 
-export function StatCard({ label, value, sub, trend, icon, className, accent }: StatCardProps) {
+export function StatCard({ label, value, sub, trend, icon, className, accent, accentGreen }: StatCardProps) {
   return (
     <div
       className={clsx(
         'rounded-xl border border-claude-border bg-claude-surface p-4',
         accent && 'border-claude-orange/30',
+        accentGreen && 'border-green-500/30',
         className,
       )}
     >
@@ -24,12 +26,12 @@ export function StatCard({ label, value, sub, trend, icon, className, accent }: 
         <p className="text-xs font-medium uppercase tracking-wider text-claude-muted">{label}</p>
         {icon && <span className="text-claude-muted">{icon}</span>}
       </div>
-      <p className={clsx('mt-2 text-2xl font-bold', accent ? 'text-claude-orange' : 'text-claude-text')}>
+      <p className={clsx('mt-2 text-2xl font-bold', accentGreen ? 'text-green-400' : accent ? 'text-claude-orange' : 'text-claude-text')}>
         {value}
       </p>
       {(sub || trend !== undefined) && (
         <div className="mt-1 flex items-center gap-2">
-          {sub && <p className="text-xs text-claude-muted">{sub}</p>}
+          {sub && <div className="text-xs text-claude-muted">{sub}</div>}
           {trend !== undefined && (
             <span
               className={clsx(

@@ -1,4 +1,5 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, nativeImage } from 'electron'
+import * as path from 'path'
 import { createDashboardWindow, createMenuBarWindow } from './windows'
 import { createTray } from './tray'
 import { registerIpcHandlers } from './ipc'
@@ -15,6 +16,21 @@ function getMenuBarWindow(): BrowserWindow | null {
 }
 
 app.whenReady().then(() => {
+  // Set dock icon (use PNG — works in both dev and prod)
+  if (process.platform === 'darwin' && app.dock) {
+    const iconCandidates = [
+      path.join(__dirname, '../../resources/icon.png'),
+      path.join(process.resourcesPath ?? '', 'icon.png'),
+      path.join(app.getAppPath(), 'resources/icon.png'),
+    ]
+    for (const p of iconCandidates) {
+      try {
+        const img = nativeImage.createFromPath(p)
+        if (!img.isEmpty()) { app.dock.setIcon(img); break }
+      } catch { /* skip */ }
+    }
+  }
+
   // Create windows
   dashboardWindow = createDashboardWindow()
   menuBarWindow = createMenuBarWindow()

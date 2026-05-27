@@ -39,6 +39,16 @@ function parseCommandContent(content: string): ParsedCommand | null {
   }
 }
 
+/** Parse a raw firstPrompt string, extracting a clean label from XML-like harness tags */
+function parseRawPrompt(raw: string): string {
+  const cmdMatch = raw.match(/<command-name>(.*?)<\/command-name>/)
+  if (cmdMatch) return cmdMatch[1].trim()
+  const msgMatch = raw.match(/<command-message>(.*?)<\/command-message>/)
+  if (msgMatch) return msgMatch[1].trim()
+  // Strip any remaining tags and collapse whitespace
+  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 /** Strip `mcp__<server>__` prefix for readability */
 function shortToolName(name: string): string {
   return name.replace(/^mcp__[^_]+__/, '')
@@ -189,10 +199,6 @@ interface AssistantTurn {
   text: string        // final text content (may be '')
   totalCost: number
   totalTokens: number
-  /** Running cost total up to and including this turn */
-  accumulatedCost: number
-  /** Running token total up to and including this turn */
-  accumulatedTokens: number
 }
 
 interface UserTurn {
@@ -217,8 +223,6 @@ function groupMessages(messages: ProcessedMessage[]): Turn[] {
   const turns: Turn[] = []
   const visible = messages.filter((m) => !m.isMeta)
   let i = 0
-  let runningCost = 0
-  let runningTokens = 0
 
   while (i < visible.length) {
     const msg = visible[i]
@@ -282,9 +286,6 @@ function groupMessages(messages: ProcessedMessage[]): Turn[] {
         }
       }
 
-      runningCost += totalCost
-      runningTokens += totalTokens
-
       turns.push({
         kind: 'assistant',
         id: turnId,
@@ -294,8 +295,6 @@ function groupMessages(messages: ProcessedMessage[]): Turn[] {
         text,
         totalCost,
         totalTokens,
-        accumulatedCost: runningCost,
-        accumulatedTokens: runningTokens,
       })
       continue
     }
@@ -467,34 +466,16 @@ function AssistantMessage({ turn }: { turn: AssistantTurn }) {
         {/* Text response — rendered as Markdown */}
         {turn.text && <MarkdownContent content={turn.text} />}
 
-        {/* Footer: per-turn cost/tokens + running totals */}
+        {/* Footer: per-turn cost + tokens */}
         {(hasCost || hasTokens) && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
-            {/* This turn */}
-            <div className="flex items-center gap-2">
-              {hasCost && <CostBadge cost={turn.totalCost} size="sm" />}
-              {hasTokens && (
-                <span className="text-[11px] text-claude-muted font-mono">
-                  {formatTokens(turn.totalTokens)} tokens
-                </span>
-              )}
-            </div>
-            {/* Divider */}
-            <span className="text-claude-muted/30 text-xs select-none">·</span>
-            {/* Accumulated */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-claude-muted/50 select-none">Σ</span>
-              {hasCost && (
-                <span className="text-[11px] text-claude-muted/60 font-mono">
-                  {formatCost(turn.accumulatedCost)}
-                </span>
-              )}
-              {hasTokens && (
-                <span className="text-[11px] text-claude-muted/60 font-mono">
-                  {formatTokens(turn.accumulatedTokens)} tokens
-                </span>
-              )}
-            </div>
+          <div className="flex items-center gap-2 pt-0.5">
+            <span className="text-[10px] text-claude-muted font-mono select-none">this turn</span>
+            {hasCost && <CostBadge cost={turn.totalCost} size="sm" />}
+            {hasTokens && (
+              <span className="text-[11px] text-claude-muted font-mono">
+                {formatTokens(turn.totalTokens)} tokens
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -565,7 +546,7 @@ export function SessionDetailPage() {
       {/* Header */}
       <div>
         <h1 className="text-base font-semibold text-claude-text line-clamp-2">
-          {detail.title ?? detail.firstPrompt ?? 'Session'}
+          {detail.title ?? (detail.firstPrompt ? parseRawPrompt(detail.firstPrompt) : 'Session')}
         </h1>
         <p className="mt-0.5 text-xs text-claude-muted font-mono">{detail.sessionId}</p>
       </div>

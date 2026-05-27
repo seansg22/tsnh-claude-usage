@@ -1,22 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import type { MenuBarData } from '@shared/types/domain'
 import { formatCost, formatTokens } from '@shared/pricing/calculator'
-import { getModelDisplayName } from '@shared/pricing/models'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { formatDistanceToNow, format } from 'date-fns'
 import { Spinner } from '../../components/ui/LoadingOverlay'
 
-const AUTO_REFRESH_MS = 60_000
+const AUTO_REFRESH_MS = 2_000
 
 export function MenuBarPage() {
-  const { baseDir, billingCycleDay, monthlyBudget } = useSettingsStore()
+  const { baseDir, billingCycleDay, monthlyBudget, pricingDiscount } = useSettingsStore()
   const [data, setData] = useState<MenuBarData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isManualLoading, setIsManualLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastFetched, setLastFetched] = useState<Date | null>(null)
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (manual = false) => {
     if (!baseDir) return
+    if (manual) setIsManualLoading(true)
     setIsLoading(true)
     setError(null)
     try {
@@ -27,6 +28,7 @@ export function MenuBarPage() {
       setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
       setIsLoading(false)
+      if (manual) setIsManualLoading(false)
     }
   }, [baseDir])
 
@@ -66,12 +68,12 @@ export function MenuBarPage() {
             </svg>
           </button>
           <button
-            onClick={fetchData}
+            onClick={() => fetchData(true)}
             title="Refresh"
-            disabled={isLoading}
+            disabled={isManualLoading}
             className="rounded p-1 text-white/40 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-30"
           >
-            {isLoading ? (
+            {isManualLoading ? (
               <Spinner className="h-4 w-4 text-white" />
             ) : (
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -103,23 +105,14 @@ export function MenuBarPage() {
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {/* Today */}
-          <div className="rounded-xl bg-white/5 p-3 border border-white/10">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/40">Today</p>
-            <div className="flex items-baseline justify-between">
-              <span className="text-2xl font-bold text-claude-orange">
-                {formatCost(data.todayCost)}
-              </span>
-              <span className="text-sm text-white/60">
-                {formatTokens(data.todayTokens)} tokens
-              </span>
-            </div>
-          </div>
-
           {/* This Period */}
           {(() => {
+            const discountedPeriodCost = pricingDiscount > 0
+              ? data.currentPeriodCost * (1 - pricingDiscount / 100)
+              : null
+            const effectiveCost = discountedPeriodCost ?? data.currentPeriodCost
             const pct = monthlyBudget != null
-              ? Math.min(100, (data.currentPeriodCost / monthlyBudget) * 100)
+              ? Math.min(100, (effectiveCost / monthlyBudget) * 100)
               : null
             const barColor =
               pct == null ? 'bg-claude-orange'
@@ -133,11 +126,27 @@ export function MenuBarPage() {
                 <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/40">
                   This Period
                 </p>
-                <div className="flex items-baseline justify-between mb-2">
-                  <span className="text-2xl font-bold text-claude-orange">
-                    {formatCost(data.currentPeriodCost)}
-                  </span>
-                  <span className="text-xs text-white/50">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    {discountedPeriodCost != null ? (
+                      <>
+                        <span className="text-2xl font-bold text-green-400">
+                          {formatCost(discountedPeriodCost)}
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs line-through text-white/30">
+                            {formatCost(data.currentPeriodCost)}
+                          </span>
+                          <span className="text-[10px] font-medium text-green-500/70">-{pricingDiscount}%</span>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-2xl font-bold text-claude-orange">
+                        {formatCost(data.currentPeriodCost)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-white/50 mt-1">
                     Resets {format(resetDate, 'MMM d')} · {data.periodDaysLeft}d left
                   </span>
                 </div>
@@ -150,7 +159,8 @@ export function MenuBarPage() {
                       />
                     </div>
                     <p className="text-[10px] text-white/40">
-                      {formatCost(data.currentPeriodCost)} of ${monthlyBudget!.toLocaleString()} · {pct.toFixed(1)}%
+                      {formatCost(effectiveCost)} of ${monthlyBudget!.toLocaleString()} · {pct.toFixed(1)}%
+                      {discountedPeriodCost != null && <span className="ml-1 text-white/30">(after discount)</span>}
                     </p>
                   </div>
                 ) : (
@@ -162,45 +172,85 @@ export function MenuBarPage() {
             )
           })()}
 
-          {/* Latest Session */}
-          {data.latestSession && (
+          {/* Today */}
+          <div className="rounded-xl bg-white/5 p-3 border border-white/10">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/40">Today</p>
+            <div className="flex items-start justify-between">
+              <div>
+                {pricingDiscount > 0 ? (
+                  <>
+                    <span className="text-2xl font-bold text-green-400">
+                      {formatCost(data.todayCost * (1 - pricingDiscount / 100))}
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs line-through text-white/30">{formatCost(data.todayCost)}</span>
+                      <span className="text-[10px] font-medium text-green-500/70">-{pricingDiscount}%</span>
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-2xl font-bold text-claude-orange">
+                    {formatCost(data.todayCost)}
+                  </span>
+                )}
+              </div>
+              <span className="text-sm text-white/60 mt-1">
+                {formatTokens(data.todayTokens)} tokens
+              </span>
+            </div>
+          </div>
+
+          {/* Today by Projects */}
+          {data.todayByProject.length > 0 && (
             <div className="rounded-xl bg-white/5 p-3 border border-white/10">
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-white/40">
-                Latest Session
+                Today by Project
               </p>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-white truncate max-w-[140px]">
-                  {data.latestSession.projectName}
-                </span>
-                <span className="text-xs text-white/50 ml-2 flex-shrink-0">
-                  {getModelDisplayName(data.latestSession.model)}
-                </span>
-              </div>
-              {data.latestSession.firstPrompt && (
-                <p className="mb-2 text-xs text-white/50 line-clamp-2 italic">
-                  "{data.latestSession.firstPrompt}"
-                </p>
-              )}
-              <div className="flex items-center justify-between text-xs text-white/40">
-                <span>{formatCost(data.latestSession.cost)}</span>
-                <span>
-                  {formatDistanceToNow(new Date(data.latestSession.lastActive), { addSuffix: true })}
-                </span>
+              <div className="space-y-2">
+                {data.todayByProject.map((proj) => {
+                  const effectiveCost = pricingDiscount > 0
+                    ? proj.cost * (1 - pricingDiscount / 100)
+                    : proj.cost
+                  const pct = data.todayCost > 0
+                    ? (proj.cost / data.todayCost) * 100
+                    : 0
+                  return (
+                    <div key={proj.projectName}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs text-white/80 truncate max-w-[150px]">
+                          {proj.projectName}
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                          {pricingDiscount > 0 ? (
+                            <>
+                              <span className="text-xs font-medium text-green-400">
+                                {formatCost(effectiveCost)}
+                              </span>
+                              <span className="text-[10px] line-through text-white/30">
+                                {formatCost(proj.cost)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs font-medium text-white">
+                              {formatCost(proj.cost)}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-white/30 w-8 text-right">
+                            {pct.toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-claude-orange/70 transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
-
-          {/* Week + Total */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
-              <p className="text-xs text-white/40">This Week</p>
-              <p className="mt-1 text-base font-semibold text-white">{formatCost(data.weekCost)}</p>
-            </div>
-            <div className="rounded-xl bg-white/5 p-3 border border-white/10">
-              <p className="text-xs text-white/40">All Time</p>
-              <p className="mt-1 text-base font-semibold text-white">{formatCost(data.totalCost)}</p>
-            </div>
-          </div>
         </div>
       )}
 
