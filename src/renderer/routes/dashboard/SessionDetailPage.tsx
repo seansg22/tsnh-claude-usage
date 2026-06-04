@@ -459,7 +459,7 @@ function UserMessage({ turn }: { turn: UserTurn }) {
                 {cmd.name || '/command'}
               </span>
               {cmd.args && (
-                <p className="text-sm text-claude-text leading-relaxed">{cmd.args}</p>
+                <p className="text-sm text-claude-text leading-relaxed break-words">{cmd.args}</p>
               )}
             </div>
           ) : (

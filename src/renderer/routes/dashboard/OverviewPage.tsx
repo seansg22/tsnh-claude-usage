@@ -149,7 +149,7 @@ export function OverviewPage() {
 
         <section className="rounded-xl border border-claude-border bg-claude-surface p-4">
           <h2 className="mb-3 text-sm font-semibold text-claude-text">Top Projects</h2>
-          <ProjectTable projects={summary.topProjects} compact />
+          <ProjectTable projects={summary.topProjects} compact sortField="cost" sortDir="desc" />
         </section>
       </div>
 
